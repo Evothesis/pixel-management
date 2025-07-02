@@ -1,77 +1,57 @@
 # backend/app/models.py
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, Text, Numeric, ForeignKey
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
+from pydantic import BaseModel, EmailStr
+from typing import Optional, Dict, Any, List
+from datetime import datetime
 
-Base = declarative_base()
-
-class Client(Base):
-    __tablename__ = "clients"
+class ClientDocument(BaseModel):
+    """Client document model for Firestore"""
+    client_id: str
+    name: str
+    email: Optional[EmailStr] = None
     
-    id = Column(Integer, primary_key=True, index=True)
-    client_id = Column(String(50), unique=True, nullable=False, index=True)
-    name = Column(String(200), nullable=False)
-    email = Column(String(255), nullable=True)
+    # NEW: Owner and billing relationship
+    owner: str                              # Who controls this client's data and config
+    billing_entity: str                     # Who pays for this client's usage
+    client_type: str = "end_client"         # "end_client", "agency", "enterprise", "admin"
     
     # Infrastructure configuration
-    deployment_type = Column(String(20), default="shared", nullable=False)  # shared, dedicated
-    vm_hostname = Column(String(255), nullable=True)
+    deployment_type: str = "shared"         # "shared", "dedicated"
+    vm_hostname: Optional[str] = None
     
-    # Privacy & compliance configuration
-    privacy_level = Column(String(20), default="standard", nullable=False)  # standard, gdpr, hipaa
-    ip_collection_enabled = Column(Boolean, default=True, nullable=False)
-    ip_salt = Column(String(128), nullable=True)  # Per-client salt for hashing
-    consent_required = Column(Boolean, default=False, nullable=False)
+    # Privacy & compliance configuration  
+    privacy_level: str = "standard"         # "standard", "gdpr", "hipaa"
+    ip_collection_enabled: bool = True
+    ip_salt: Optional[str] = None           # Generated salt for IP hashing
+    consent_required: bool = False
     
-    # Tracking feature configuration (stored as JSON)
-    features = Column(JSONB, default={}, nullable=False)
+    # Tracking features configuration
+    features: Dict[str, Any] = {}
     
     # Billing configuration
-    monthly_event_limit = Column(Integer, nullable=True)
-    billing_rate_per_1k = Column(Numeric(6, 4), default=0.01, nullable=False)
+    billing_rate_per_1k: float = 0.01       # $0.01 per 1000 events
     
     # Metadata
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
-    is_active = Column(Boolean, default=True, nullable=False)
-    
-    # Relationships
-    tracking_domains = relationship("TrackingDomain", back_populates="client", cascade="all, delete-orphan")
-    configuration_changes = relationship("ConfigurationChange", back_populates="client", cascade="all, delete-orphan")
-    
-    def __repr__(self):
-        return f"<Client(client_id='{self.client_id}', name='{self.name}', privacy_level='{self.privacy_level}')>"
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    is_active: bool = True
 
-class TrackingDomain(Base):
-    __tablename__ = "tracking_domains"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    client_id = Column(String(50), ForeignKey("clients.client_id", ondelete="CASCADE"), nullable=False)
-    domain = Column(String(255), nullable=False, unique=True, index=True)  # Each domain can only belong to one client
-    is_primary = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    
-    # Relationships
-    client = relationship("Client", back_populates="tracking_domains")
-    
-    def __repr__(self):
-        return f"<TrackingDomain(domain='{self.domain}', client_id='{self.client_id}')>"
+class DomainDocument(BaseModel):
+    """Domain document model for client subcolleciton"""
+    domain: str
+    is_primary: bool = False
+    created_at: datetime
 
-class ConfigurationChange(Base):
-    __tablename__ = "configuration_changes"
-    
-    id = Column(Integer, primary_key=True, index=True)
-    client_id = Column(String(50), ForeignKey("clients.client_id", ondelete="CASCADE"), nullable=False)
-    changed_by = Column(String(100), nullable=False)  # Admin user (simple string for MVP)
-    change_description = Column(Text, nullable=False)
-    old_config = Column(JSONB, nullable=True)
-    new_config = Column(JSONB, nullable=True)
-    timestamp = Column(DateTime(timezone=True), server_default=func.now(), nullable=False, index=True)
-    
-    # Relationships
-    client = relationship("Client", back_populates="configuration_changes")
-    
-    def __repr__(self):
-        return f"<ConfigurationChange(client_id='{self.client_id}', changed_by='{self.changed_by}', timestamp='{self.timestamp}')>"
+class DomainIndexDocument(BaseModel):
+    """Domain index document for O(1) domain lookups"""
+    client_id: str                          # Which client owns this domain
+    owner: str                              # Denormalized for efficient owner queries
+    created_at: datetime
+
+class ConfigChangeDocument(BaseModel):
+    """Configuration change audit log"""
+    client_id: str
+    changed_by: str                         # User/admin who made the change
+    change_description: str
+    old_config: Optional[Dict[str, Any]] = None
+    new_config: Optional[Dict[str, Any]] = None
+    timestamp: datetime
