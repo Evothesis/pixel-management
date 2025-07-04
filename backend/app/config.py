@@ -5,12 +5,6 @@ from typing import Optional
 class Settings:
     """Application configuration settings"""
     
-    # Database
-    DATABASE_URL: str = os.getenv(
-        "DATABASE_URL", 
-        "postgresql://postgres:postgres@localhost:5432/pixel_management"
-    )
-    
     # API Configuration
     API_V1_PREFIX: str = "/api/v1"
     PROJECT_NAME: str = "Evothesis Pixel Management"
@@ -40,6 +34,9 @@ class Settings:
     
     # Feature flags
     ENABLE_AUDIT_LOG: bool = os.getenv("ENABLE_AUDIT_LOG", "true").lower() == "true"
+    
+    # Google Cloud Configuration
+    GOOGLE_CLOUD_PROJECT: str = os.getenv("GOOGLE_CLOUD_PROJECT", "")
     
     class Config:
         case_sensitive = True

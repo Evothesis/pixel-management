@@ -111,6 +111,7 @@ DELETE /api/v1/admin/clients/{id}/domains/{domain}  # Remove domain authorizatio
 - Docker Desktop
 - Node.js 18+ (for local frontend development)
 - Git
+- Google Cloud credentials (service account key)
 
 ### **Quick Start**
 
@@ -119,14 +120,22 @@ DELETE /api/v1/admin/clients/{id}/domains/{domain}  # Remove domain authorizatio
 git clone <repository-url>
 cd pixel-management
 
-# Start development environment with full web interface
+# Set up Google Cloud credentials
+# 1. Download service account key as credentials.json
+# 2. Place in project root
+# 3. Set environment variable
+export GOOGLE_CLOUD_PROJECT=your-project-id
+
+# Start development environment (backend only)
+docker-compose -f docker-compose.local.yml up -d
+
+# OR start with full web interface (requires frontend setup)
 docker-compose -f docker-compose.webapp.yml up -d
 
 # Access points:
-# - Web Interface: http://localhost (nginx proxy)
-# - React Dev Server: http://localhost:3000 (direct access)
-# - API Backend: http://localhost:8000 (FastAPI)
+# - API Backend: http://localhost:8000
 # - API Documentation: http://localhost:8000/docs (Swagger UI)
+# - Health Check: http://localhost:8000/health
 ```
 
 ### **Development Workflow**
@@ -135,15 +144,12 @@ docker-compose -f docker-compose.webapp.yml up -d
 # Backend changes (hot reload enabled)
 # Edit files in backend/app/ - changes auto-reload
 
-# Frontend changes (hot reload enabled)  
-# Edit files in frontend/src/ - browser auto-refreshes
-
 # View logs for debugging
-docker-compose -f docker-compose.webapp.yml logs -f
+docker-compose -f docker-compose.local.yml logs -f
 
-# Reset development environment
-docker-compose -f docker-compose.webapp.yml down -v
-docker-compose -f docker-compose.webapp.yml up -d
+# Reset development environment  
+docker-compose -f docker-compose.local.yml down
+docker-compose -f docker-compose.local.yml up -d
 ```
 
 ## 🌐 Production Deployment
@@ -192,112 +198,12 @@ docker-compose -f docker-compose.webapp.yml up -d
 
 4. **Verify Deployment**
    ```bash
-   # Test health endpoint
-   curl https://YOUR_SERVICE_URL/health
-   
-   # Test admin API
-   curl https://YOUR_SERVICE_URL/api/v1/admin/clients
+   # Service health check
+   curl https://pixel-management-275731808857.us-central1.run.app/health
+
+   # Expected response:
+   # {"status":"healthy","service":"pixel-management","database":"firestore_connected"}
    ```
-
-#### **Production Configuration**
-
-**Environment Variables:**
-- `GOOGLE_CLOUD_PROJECT`: Your Google Cloud project ID
-- `PORT`: Automatically set by Cloud Run (8080)
-
-**Resource Allocation:**
-- **Memory**: 512Mi (sufficient for typical load)
-- **CPU**: 1 vCPU 
-- **Scaling**: 0 to 10 instances (auto-scales to zero when unused)
-
-**Cost Optimization:**
-- **Free Tier Eligible**: 2M requests/month, 360K GB-seconds/month
-- **Pay-per-Request**: Only charged when actively serving requests
-- **Auto-scaling**: Scales to zero between requests to minimize costs
-
-## 🔧 Integration with Tracking Infrastructure
-
-### **Tracking VM Integration**
-
-Tracking VMs should call the domain authorization endpoint before processing any tracking requests:
-
-```python
-# Example integration code for tracking VMs
-import httpx
-
-async def validate_domain_and_get_config(domain: str, config_service_url: str):
-    """Validate domain authorization and get client configuration"""
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.get(f"{config_service_url}/api/v1/config/domain/{domain}")
-            
-            if response.status_code == 404:
-                # Domain not authorized - reject all tracking
-                raise UnauthorizedDomainError(f"Domain {domain} not authorized")
-            
-            response.raise_for_status()
-            return response.json()
-            
-    except Exception as e:
-        # Fail secure - reject tracking if config service unavailable
-        raise ConfigServiceError(f"Cannot validate domain authorization: {e}")
-
-# Usage in tracking endpoint
-config = await validate_domain_and_get_config(
-    domain="example.com",
-    config_service_url="https://pixel-management-275731808857.us-central1.run.app"
-)
-
-# Use config for privacy-compliant tracking
-if config["privacy_level"] == "gdpr":
-    # Apply GDPR-compliant processing
-    ip_address = hash_ip(request_ip, config["ip_collection"]["salt"])
-else:
-    ip_address = request_ip
-```
-
-### **Performance Considerations**
-
-- **Response Time**: Domain authorization typically responds in <100ms
-- **Caching**: Implement local caching with 5-minute TTL for high-traffic scenarios
-- **Fallback**: Always fail secure if config service is unavailable
-
-## 🔐 Security & Compliance
-
-### **Domain Authorization Security**
-- **Whitelist-Only**: Only explicitly authorized domains can collect data
-- **Real-time Validation**: Every tracking request validates domain authorization
-- **Audit Trail**: All configuration changes logged with timestamps and user attribution
-
-### **Privacy Compliance Features**
-
-**GDPR Compliance:**
-- Automatic IP hashing with client-specific salts
-- Consent requirement enforcement
-- PII redaction in tracking data
-- Right to deletion support
-
-**HIPAA Compliance:**
-- Enhanced audit logging
-- Business Associate Agreement (BAA) support
-- Additional data encryption requirements
-- Restricted data retention policies
-
-### **Access Control**
-- **Owner-Based**: Only client owners can modify configurations
-- **Service Account**: Production uses least-privilege service accounts
-- **API Security**: All admin operations require proper authorization
-
-## 📊 Monitoring & Operations
-
-### **Health Monitoring**
-```bash
-# Service health check
-curl https://pixel-management-275731808857.us-central1.run.app/health
-
-# Expected response:
-# {"status":"healthy","service":"pixel-management","database":"firestore_connected"}
-```
 
 ### **Performance Metrics**
 - **Response Time**: Monitor domain authorization endpoint latency
@@ -373,14 +279,11 @@ gcloud services list --enabled | grep firestore
 - **Testing**: Unit tests for critical domain authorization logic
 
 ### **Deployment Process**
-1. Test changes locally with `docker-compose.webapp.yml`
+1. Test changes locally with `docker-compose.local.yml`
 2. Verify all tests pass and no TypeScript/ESLint errors
 3. Deploy to staging environment for integration testing
-4. Deploy to production using `gcloud run deploy`
-5. Verify health check and run smoke tests
+4. Production deployment via Cloud Run
 
 ---
 
-**Built with ❤️ for secure, privacy-compliant analytics infrastructure**
-
-For additional support or questions, refer to the API documentation at `/docs` or check the troubleshooting section above.
+**Built with ❤️ for centralized configuration management and domain authorization**
