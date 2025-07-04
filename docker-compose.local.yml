@@ -1,13 +1,13 @@
 ﻿# docker-compose.local.yml
+# Firestore-based local development environment
 
 services:
   backend:
     build: ./backend
     ports:
       - "8000:8000"
-    env_file:
-      - .env.local
     environment:
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
       - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/credentials.json
     volumes:
       - ./backend/app:/app/app

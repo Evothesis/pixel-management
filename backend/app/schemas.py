@@ -18,9 +18,6 @@ class DomainCreate(DomainBase):
 class DomainResponse(DomainBase):
     id: str                                 # Firestore document ID
     created_at: datetime
-    
-    class Config:
-        from_attributes = True
 
 # Client schemas
 class ClientBase(BaseModel):
@@ -29,8 +26,8 @@ class ClientBase(BaseModel):
     client_type: str = "end_client"
 
 class ClientCreate(ClientBase):
-    owner: str                              # NEW: Required - who controls this client
-    billing_entity: Optional[str] = None    # NEW: Optional - defaults to owner
+    owner: str                              # Required - who controls this client
+    billing_entity: Optional[str] = None    # Optional - defaults to owner
     deployment_type: str = "shared"
     privacy_level: str = "standard"
     features: Dict[str, Any] = {}
@@ -67,8 +64,8 @@ class ClientUpdate(BaseModel):
 
 class ClientResponse(ClientBase):
     client_id: str
-    owner: str                              # NEW: Who controls this client
-    billing_entity: str                     # NEW: Who pays for this client
+    owner: str                              # Who controls this client
+    billing_entity: str                     # Who pays for this client
     privacy_level: str
     ip_collection_enabled: bool
     consent_required: bool
@@ -79,10 +76,7 @@ class ClientResponse(ClientBase):
     created_at: datetime
     updated_at: Optional[datetime]
     is_active: bool
-    domain_count: int = 0                   # NEW: Computed field for convenience
-    
-    class Config:
-        from_attributes = True
+    domain_count: int = 0                   # Computed field for convenience
 
 # Configuration schemas (for tracking VMs)
 class ClientConfigResponse(BaseModel):
@@ -103,6 +97,3 @@ class ConfigurationChangeResponse(BaseModel):
     old_config: Optional[Dict[str, Any]]
     new_config: Optional[Dict[str, Any]]
     timestamp: datetime
-    
-    class Config:
-        from_attributes = True
