@@ -1,6 +1,9 @@
 # backend/app/main.py
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+import os
 from typing import Optional, List
 import logging
 from datetime import datetime
@@ -13,10 +16,6 @@ from .schemas import (
 )
 from .auth import get_current_user_client_id, require_owner_access, require_owner_or_self_access
 from .auth_middleware import BasicAuthMiddleware
-
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
-import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)

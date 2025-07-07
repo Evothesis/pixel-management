@@ -231,4 +231,246 @@ The frontend is built and served by the FastAPI backend in production:
 
 ```dockerfile
 # Multi-stage build in root Dockerfile
-FROM
+FROM node:18-alpine AS frontend-builder
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm install --only=production
+COPY frontend/ ./
+RUN npm run build
+
+# Backend stage serves built frontend
+FROM python:3.11-slim
+COPY --from=frontend-builder /app/frontend/build ./static
+# FastAPI serves static files from /static route
+```
+
+### **Static File Serving**
+```python
+# Backend serves React app
+app.mount("/static", StaticFiles(directory="/app/static/static"), name="static")
+
+@app.get("/", include_in_schema=False)
+async def serve_react_app():
+    return FileResponse("/app/static/index.html")
+```
+
+## 🔍 Monitoring & Analytics
+
+### **Error Handling**
+```javascript
+// Comprehensive error handling with user feedback
+const handleApiError = (error) => {
+  if (error.status === 401) {
+    alert('Session expired. Please refresh and login again.');
+  } else if (error.status === 403) {
+    alert('Access denied. Check your permissions.');
+  } else {
+    alert('Operation failed. Please try again.');
+  }
+};
+```
+
+### **Performance Monitoring**
+- **Bundle Size**: Optimized with code splitting
+- **Load Times**: Minimized with lazy loading
+- **API Response Times**: Visual loading indicators
+- **Error Tracking**: User-friendly error messages
+
+### **User Experience Metrics**
+- **Form Completion**: Real-time validation reduces errors
+- **Navigation**: Intuitive menu structure and breadcrumbs
+- **Feedback**: Immediate confirmation for all actions
+- **Help Integration**: Contextual help and user guide access
+
+## 📊 Data Management
+
+### **State Management**
+```javascript
+// React hooks for state management
+const [clients, setClients] = useState([]);
+const [loading, setLoading] = useState(true);
+const [error, setError] = useState(null);
+
+// API data fetching with error handling
+useEffect(() => {
+  const fetchClients = async () => {
+    try {
+      const response = await fetch('/api/v1/admin/clients');
+      if (response.ok) {
+        const data = await response.json();
+        setClients(data);
+      } else {
+        setError('Failed to load clients');
+      }
+    } catch (err) {
+      setError('Network error');
+    } finally {
+      setLoading(false);
+    }
+  };
+  
+  fetchClients();
+}, []);
+```
+
+### **Form Data Handling**
+- **Controlled Components**: React state drives form values
+- **Validation**: Real-time validation with helpful messages
+- **Submission**: Optimistic updates with rollback on failure
+- **Auto-save**: Draft preservation for long forms
+
+## 🧪 Testing & Quality
+
+### **Testing Strategy**
+```bash
+# Unit tests for components
+npm test
+
+# Component testing
+npm run test:watch
+
+# Coverage reporting
+npm run test:coverage
+```
+
+### **Quality Assurance**
+- **ESLint**: Code style and error checking
+- **Prettier**: Consistent code formatting
+- **React DevTools**: Development debugging
+- **Browser Testing**: Cross-browser compatibility
+
+### **Accessibility Testing**
+- **Screen Reader**: Testing with NVDA/JAWS
+- **Keyboard Navigation**: Tab order and focus management
+- **Color Contrast**: WCAG AA compliance
+- **Semantic HTML**: Proper heading structure
+
+## 🔧 Customization & Extension
+
+### **Adding New Features**
+```javascript
+// Example: Adding new client field
+// 1. Update ClientForm component
+<div className="form-group">
+  <label htmlFor="new_field">New Field</label>
+  <input
+    type="text"
+    id="new_field"
+    name="new_field"
+    value={formData.new_field}
+    onChange={handleChange}
+  />
+</div>
+
+// 2. Update form validation
+// 3. Update API integration
+// 4. Update display components
+```
+
+### **Styling Customization**
+```css
+/* Custom CSS variables for theming */
+:root {
+  --primary-color: #1a365d;
+  --accent-color: #3182ce;
+  --background-color: #ffffff;
+  --text-color: #4a5568;
+}
+
+/* Component-specific styling */
+.client-card {
+  border: 1px solid var(--accent-color);
+  border-radius: 8px;
+  padding: 20px;
+  margin: 10px 0;
+}
+```
+
+### **API Integration Patterns**
+```javascript
+// Reusable API utility
+const apiCall = async (endpoint, options = {}) => {
+  const response = await fetch(`/api/v1${endpoint}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers
+    },
+    ...options
+  });
+  
+  if (!response.ok) {
+    throw new Error(`API call failed: ${response.status}`);
+  }
+  
+  return response.json();
+};
+```
+
+## 🚨 Security Considerations
+
+### **Client-Side Security**
+- **No Credential Storage**: Browser handles authentication
+- **HTTPS Only**: All production traffic encrypted
+- **Input Sanitization**: XSS prevention in form inputs
+- **API Validation**: All inputs validated on backend
+
+### **Data Protection**
+- **No Sensitive Data Caching**: Sensitive data not stored in localStorage
+- **Session Management**: Browser-native credential handling
+- **Error Messages**: No sensitive information in error responses
+- **Audit Trail**: All admin actions logged on backend
+
+### **Best Practices**
+```javascript
+// Secure form handling
+const sanitizeInput = (input) => {
+  return input.trim().replace(/<script.*?<\/script>/gi, '');
+};
+
+// Safe API error handling
+const handleError = (error) => {
+  // Never expose sensitive error details to user
+  console.error('API Error:', error);
+  setError('Operation failed. Please try again.');
+};
+```
+
+## 📚 Documentation Integration
+
+### **User Guide Features**
+- **Interactive Navigation**: Smooth scrolling to sections
+- **Code Examples**: Copy-pasteable integration snippets
+- **Visual Aids**: Screenshots and diagrams
+- **Search Functionality**: Quick access to specific topics
+
+### **Help System**
+```javascript
+// Contextual help integration
+const HelpTooltip = ({ topic, children }) => {
+  return (
+    <div className="help-tooltip">
+      {children}
+      <span className="help-icon" onClick={() => showHelp(topic)}>?</span>
+    </div>
+  );
+};
+```
+
+## 🔮 Future Enhancements
+
+### **Planned Features**
+- **Advanced Dashboard**: Real-time charts and analytics
+- **Bulk Operations**: Multi-client management tools
+- **User Management**: Multiple admin accounts with roles
+- **Export Functionality**: CSV/PDF reports
+- **Mobile App**: React Native companion app
+
+### **Technical Improvements**
+- **Progressive Web App**: Offline functionality
+- **Performance Optimization**: Lazy loading and code splitting
+- **Advanced Caching**: Smart data caching strategies
+- **Real-time Updates**: WebSocket integration for live data
+
+---
+
+**Built with ❤️ for intuitive client configuration and domain management**
