@@ -7,12 +7,12 @@ from datetime import datetime
 from google.cloud import firestore
 
 from .firestore_client import firestore_client
-from .models import ClientDocument, DomainDocument, DomainIndexDocument  
 from .schemas import (
     ClientCreate, ClientUpdate, ClientResponse, 
     DomainCreate, DomainResponse, ClientConfigResponse
 )
 from .auth import get_current_user_client_id, require_owner_access, require_owner_or_self_access
+from .auth_middleware import BasicAuthMiddleware
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Evothesis Pixel Management", version="1.0.0")
 
-# CORS middleware
+# CORS middleware (before auth middleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],  # Restrict in production
@@ -32,6 +32,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Add Basic Auth middleware for production protection
+# This will protect ALL routes including static files
+if os.getenv("ENVIRONMENT") == "production":
+    logger.info("Production mode: Enabling Basic Authentication")
+    auth_middleware = BasicAuthMiddleware()
+    app.middleware("http")(auth_middleware)
+else:
+    logger.info("Development mode: Basic Authentication disabled")
 
 # Add this debug endpoint temporarily
 @app.get("/debug/static")
@@ -638,22 +647,6 @@ async def health_check():
             "error": str(e),
             "timestamp": datetime.utcnow().isoformat()
         }
-
-# @app.get("/")
-# async def root():
-#     """Root endpoint"""
-#     return {
-#         "service": "Evothesis Pixel Management",
-#         "version": "1.0.0",
-#         "status": "running",
-#         "endpoints": {
-#             "health": "/health",
-#             "api_docs": "/docs",
-#             "config_by_domain": "/api/v1/config/domain/{domain}",
-#             "config_by_client": "/api/v1/config/client/{client_id}",
-#             "admin_clients": "/api/v1/admin/clients"
-#         }
-#     }
 
 # Serve React static files (for production deployment) - MOVE TO END
 if os.path.exists("/app/static"):
