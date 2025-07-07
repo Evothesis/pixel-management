@@ -41,7 +41,7 @@ The Pixel Management system provides centralized client configuration and domain
 ### **🏢 Multi-Tenant Architecture**
 - **Owner/Billing Model**: Flexible client ownership and billing relationships
 - **Agency Support**: Single owner can manage multiple client accounts
-- **Access Control**: Role-based permissions for client management
+- **Access Control**: HTTP Basic Auth protection for admin interface
 
 ### **⚙️ Deployment Flexibility**
 - **Shared Infrastructure**: Cost-effective multi-tenant tracking VMs
@@ -54,7 +54,7 @@ The Pixel Management system provides centralized client configuration and domain
 - **Backend**: FastAPI with async/await and automatic API documentation
 - **Database**: Google Firestore for scalable, real-time data storage
 - **Hosting**: Google Cloud Run for serverless, auto-scaling deployment
-- **Authentication**: Google Cloud IAM with service account security
+- **Authentication**: HTTP Basic Auth with Cloud Run environment variables
 
 ## 📡 API Endpoints
 
@@ -90,7 +90,7 @@ GET /api/v1/config/client/{client_id}
 }
 ```
 
-### **Admin Management API**
+### **Admin Management API (Protected by Basic Auth)**
 
 ```bash
 # Client management
@@ -105,19 +105,61 @@ GET    /api/v1/admin/clients/{id}/domains           # List client domains
 DELETE /api/v1/admin/clients/{id}/domains/{domain}  # Remove domain authorization
 ```
 
-## 🔐 Authentication
+## 🔐 Authentication & Security
 
-### **Current Implementation (MVP)**
-- Uses static admin client (`client_evothesis_admin`) created automatically on startup
-- All API calls authorized through owner/billing entity checks
-- Service account authentication for Firestore access
-- Simple authorization model: owners can manage their clients
+### **Production Authentication**
+- **HTTP Basic Auth**: Protects entire admin interface and API endpoints
+- **Cloud Run Environment Variables**: Secure credential management
+- **Session-based**: Browser login with username/password
 
-### **Planned Enhancement**
-- JWT-based user authentication system
-- Role-based access control (RBAC)
-- Multi-user support with proper session management
-- OAuth integration for enterprise clients
+### **Admin Access**
+- **Username**: Set via `ADMIN_USERNAME` environment variable (default: `admin`)
+- **Password**: Set via `ADMIN_PASSWORD` environment variable
+- **Access Control**: Single admin user with full system access
+
+### **Security Features**
+- **Domain Authorization**: Only authorized domains can collect tracking data
+- **IP Hashing**: Client-specific salts for GDPR/HIPAA compliance
+- **Audit Trail**: All configuration changes logged with timestamps
+- **Service Health**: Health endpoint accessible for Cloud Run monitoring
+
+## 🌐 Production Deployment
+
+### **Quick Deploy to Google Cloud Run**
+
+```bash
+# 1. Clone and navigate to repository
+git clone <repository-url>
+cd pixel-management
+
+# 2. Authenticate with Google Cloud
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+
+# 3. Deploy to Cloud Run
+./deploy-production.sh
+
+# 4. Configure authentication via Cloud Run console
+# - Go to Cloud Run console > pixel-management
+# - Edit & Deploy New Revision > Variables & Secrets
+# - Add: ADMIN_USERNAME=admin, ADMIN_PASSWORD=YourSecurePassword
+# - Deploy
+```
+
+### **Prerequisites**
+- Google Cloud Project with billing enabled
+- `gcloud` CLI installed and authenticated
+- Docker installed locally (for build process)
+
+### **Environment Variables**
+Set these in Cloud Run console after deployment:
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GOOGLE_CLOUD_PROJECT` | Yes | Your Google Cloud project ID |
+| `ENVIRONMENT` | Yes | Set to `production` |
+| `ADMIN_USERNAME` | Yes | Admin login username |
+| `ADMIN_PASSWORD` | Yes | Admin login password (8+ chars) |
 
 ## 📊 Database Schema
 
@@ -134,115 +176,74 @@ DELETE /api/v1/admin/clients/{id}/domains/{domain}  # Remove domain authorizatio
 - Configuration Changes → Client ID (audit trail)
 - Owner → Multiple Clients (agency/enterprise model)
 
-### **Data Flow**
-1. **Domain Authorization**: Tracking VM → Domain Index → Client Config
-2. **Client Management**: Admin UI → Client Collection → Domain Index
-3. **Audit Trail**: All changes → Configuration Changes collection
-
 ## 🛠️ Local Development
 
-### **Prerequisites**
-- Docker Desktop 4.0+ with Docker Compose v2
-- Node.js 18+ and npm 8+ (for frontend hot reload)
-- Git
-- Google Cloud SDK (gcloud CLI)
-- Service account with Firestore Admin role
-- 8GB+ RAM recommended for local development
-
-### **Quick Start**
+### **Development Setup**
 
 ```bash
-# Clone the repository
+# 1. Clone repository
 git clone <repository-url>
 cd pixel-management
 
-# Set up Google Cloud credentials
-# 1. Download service account key as credentials.json
-# 2. Place in project root
-# 3. Set environment variable
+# 2. Set up Google Cloud credentials
+# Download service account key as credentials.json
+# Place in project root
 export GOOGLE_CLOUD_PROJECT=your-project-id
 
-# Start development environment (backend only)
+# 3. Start development environment
 docker-compose -f docker-compose.local.yml up -d
 
-# OR start with full web interface (requires frontend setup)
-docker-compose -f docker-compose.webapp.yml up -d
-
-# Access points:
-# - API Backend: http://localhost:8000
-# - API Documentation: http://localhost:8000/docs (Swagger UI)
-# - Health Check: http://localhost:8000/health
+# 4. Access development interface
+# Backend: http://localhost:8000
+# Frontend: http://localhost:3000 (if using full webapp)
+# API Docs: http://localhost:8000/docs
 ```
 
-### **Development Workflow**
+### **Development vs Production**
+- **Development**: No authentication required
+- **Production**: HTTP Basic Auth enabled automatically
+- **Environment Detection**: Based on `ENVIRONMENT=production` variable
 
+## 📈 Usage & Management
+
+### **Client Management Workflow**
+
+1. **Create Client**
+   - Set privacy level (Standard/GDPR/HIPAA)
+   - Choose deployment type (Shared/Dedicated)
+   - Configure billing entity
+
+2. **Add Authorized Domains**
+   - Each domain must be explicitly authorized
+   - Supports multiple domains per client
+   - Primary domain designation
+
+3. **Deploy Tracking**
+   - Tracking VMs validate domains in real-time
+   - Only authorized domains can collect data
+   - Client-specific privacy settings applied
+
+### **Domain Authorization Security**
 ```bash
-# Backend changes (hot reload enabled)
-# Edit files in backend/app/ - changes auto-reload
+# Test domain authorization
+curl https://pixel-management-url/api/v1/config/domain/example.com
 
-# View logs for debugging
-docker-compose -f docker-compose.local.yml logs -f
-
-# Reset development environment  
-docker-compose -f docker-compose.local.yml down
-docker-compose -f docker-compose.local.yml up -d
+# Should return client configuration, not 404
 ```
 
-## 🌐 Production Deployment
+## 🔍 Monitoring & Operations
 
-### **Google Cloud Run Deployment**
+### **Health Monitoring**
+```bash
+# Service health check
+curl https://pixel-management-url/health
 
-**Current Production URL**: https://pixel-management-275731808857.us-central1.run.app
-
-#### **Prerequisites**
-- Google Cloud Project with billing enabled
-- `gcloud` CLI installed and authenticated
-- Docker installed locally
-
-#### **Deployment Steps**
-
-1. **Enable Required APIs**
-   ```bash
-   gcloud services enable run.googleapis.com
-   gcloud services enable artifactregistry.googleapis.com
-   gcloud services enable cloudbuild.googleapis.com
-   gcloud services enable firestore.googleapis.com
-   ```
-
-2. **Set Up Service Account Permissions**
-   ```bash
-   # Grant Firestore access to default Compute Engine service account
-   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-     --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
-     --role="roles/datastore.user"
-   ```
-
-3. **Deploy to Cloud Run**
-   ```bash
-   gcloud run deploy pixel-management \
-     --source . \
-     --platform managed \
-     --region us-central1 \
-     --allow-unauthenticated \
-     --port 8080 \
-     --memory 512Mi \
-     --cpu 1 \
-     --min-instances 0 \
-     --max-instances 10 \
-     --set-env-vars GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID
-   ```
-
-4. **Verify Deployment**
-   ```bash
-   # Service health check
-   curl https://pixel-management-275731808857.us-central1.run.app/health
-
-   # Expected response:
-   # {"status":"healthy","service":"pixel-management","database":"firestore_connected"}
-   ```
+# Expected response:
+# {"status":"healthy","service":"pixel-management","database":"firestore_connected"}
+```
 
 ### **Performance Metrics**
-- **Response Time**: Monitor domain authorization endpoint latency
+- **Response Time**: Monitor domain authorization endpoint latency (<100ms target)
 - **Error Rate**: Track 4xx/5xx responses for debugging
 - **Database Performance**: Monitor Firestore read/write operations
 
@@ -258,171 +259,61 @@ gcloud run services describe pixel-management --region us-central1
 gcloud run services update pixel-management --region us-central1 --memory 1Gi
 ```
 
-## 🔒 Security Configuration
+## 🔒 Security Best Practices
 
 ### **Production Security Checklist**
-- [ ] Configure CORS origins (remove wildcard `*` in production)
-- [ ] Set up proper authentication headers
-- [ ] Enable rate limiting for API endpoints
-- [ ] Configure service account with minimal permissions
-- [ ] Enable audit logging for all configuration changes
-- [ ] Implement request signing for tracking VM communication
-- [ ] Set up monitoring alerts for unauthorized access attempts
+- [x] HTTP Basic Auth enabled for admin interface
+- [x] Strong admin password set via Cloud Run console
+- [x] Domain authorization prevents unauthorized tracking
+- [x] Audit logging for all configuration changes
+- [x] Service account with minimal Firestore permissions
+- [ ] **TODO**: API key authentication for service-to-service calls
+- [ ] **TODO**: Rate limiting for API endpoints
+- [ ] **TODO**: CORS restrictions for production domains
 
-### **Security Best Practices**
-- **Domain Authorization**: Only authorized domains can collect tracking data
-- **IP Hashing**: Client-specific salts for GDPR/HIPAA compliance
+### **Security Features**
+- **Authentication**: HTTP Basic Auth protects all admin functionality
+- **Authorization**: Domain-based access control for tracking
 - **Audit Trail**: All configuration changes logged with timestamps
-- **Access Control**: Owner-based permissions prevent unauthorized access
-- **Service Account**: Minimal permissions for Firestore access only
+- **Data Protection**: Client-specific privacy settings and IP hashing
+- **Service Security**: Health checks exempt from authentication
 
-## 📈 Performance Monitoring
+## 🆘 Troubleshooting
 
-### **Critical Metrics**
-- **Domain Authorization Response Time**: <100ms target for tracking performance
-- **Firestore Operations**: Read/write operations per second
-- **Error Rates**: 4xx/5xx responses for debugging
-- **Client Configuration Cache**: Hit rates for frequently accessed configs
-- **Cloud Run Scaling**: Instance count and response times
+### **Common Issues**
 
-### **Scaling Indicators**
-- Domain lookup latency trends (monitor for >50ms)
-- Firestore document read patterns (watch for hot partitions)
-- Cloud Run instance scaling patterns (tune min/max instances)
-- Memory usage patterns (optimize for 512MB-1GB range)
+**Login Required on Every Page Load**
+- Check that `ADMIN_USERNAME` and `ADMIN_PASSWORD` are set in Cloud Run console
+- Verify environment variables after deployment revision
+- Clear browser cache/cookies and try incognito mode
 
-### **Performance Commands**
+**Domain Authorization Failing**
 ```bash
-# Monitor response times
-curl -w "@curl-format.txt" -o /dev/null -s "https://your-service.run.app/api/v1/config/domain/example.com"
+# Check if domain exists in system
+curl -u admin:password https://pixel-management-url/api/v1/config/domain/yourdomain.com
 
-# Check Cloud Run metrics
-gcloud run services describe pixel-management --region us-central1 --format="value(status.conditions)"
-
-# Monitor Firestore usage
-gcloud logging read "resource.type=firestore_database" --limit=50
+# Should return client config, not 404
 ```
 
-## 🚨 Enhanced Troubleshooting
-
-### **Domain Authorization Issues**
-
-**404 for Authorized Domain:**
+**Service Won't Start**
 ```bash
-# Check domain case sensitivity and whitespace
-curl -v "https://your-service.run.app/api/v1/config/domain/example.com"
+# Check deployment logs
+gcloud run services logs read pixel-management --region us-central1 --limit 50
 
-# Verify domain exists in Firestore
-gcloud firestore documents list --collection-id=domain_index --filter="__name__ HAS_ANCESTOR /domain_index/example.com"
+# Common issues: missing environment variables, import errors
 ```
 
-**Domain Already Exists Error:**
+### **Debug Commands**
 ```bash
-# Check current domain owner
-gcloud firestore documents describe --collection-id=domain_index --document-id=example.com
+# Test authentication
+curl -u admin:password https://pixel-management-url/api/v1/admin/clients
 
-# Verify client ownership
-gcloud firestore documents describe --collection-id=clients --document-id=CLIENT_ID
+# Check Firestore connectivity
+curl -u admin:password https://pixel-management-url/health
+
+# View all configuration changes
+curl -u admin:password https://pixel-management-url/api/v1/admin/configuration-changes
 ```
-
-**Configuration Not Updating:**
-```bash
-# Check audit logs
-gcloud firestore documents list --collection-id=configuration_changes --order-by="timestamp desc" --limit=10
-
-# Verify client document structure
-gcloud firestore documents describe --collection-id=clients --document-id=CLIENT_ID
-```
-
-### **Development Environment Issues**
-
-**Health Check Fails:**
-```bash
-# Check Firestore permissions
-gcloud projects get-iam-policy YOUR_PROJECT_ID --flatten="bindings[].members" \
-  --filter="bindings.members:*compute@developer.gserviceaccount.com"
-
-# Verify Firestore API is enabled
-gcloud services list --enabled | grep firestore
-
-# Test local credentials
-gcloud auth application-default print-access-token
-```
-
-**Frontend Not Loading:**
-- Check if static files are being served correctly
-- Verify React build completed successfully in container
-- Check browser console for JavaScript errors
-- Verify proxy configuration in `package.json` (`"proxy": "http://backend:8000"`)
-- Check Docker network connectivity: `docker network ls`
-
-**API Calls Failing:**
-- Verify CORS configuration allows requests from frontend domain
-- Check that API routes are defined before catch-all routes in main.py
-- Confirm environment variables are set correctly
-- Test API directly: `curl http://localhost:8000/health`
-- Check Docker logs: `docker-compose logs -f backend`
-
-**Hot Reload Not Working:**
-```bash
-# Verify volume mounts
-docker-compose config | grep -A5 volumes
-
-# Check file permissions
-ls -la frontend/src/
-
-# Restart with clean build
-docker-compose down && docker-compose up --build
-```
-
-### **Production Deployment Issues**
-
-**Cloud Run Deployment Fails:**
-```bash
-# Check build logs
-gcloud builds list --limit=5
-
-# Verify service account permissions
-gcloud projects get-iam-policy YOUR_PROJECT_ID --flatten="bindings[].members"
-
-# Test container locally
-docker build -t pixel-management .
-docker run -p 8080:8080 -e GOOGLE_CLOUD_PROJECT=YOUR_PROJECT pixel-management
-```
-
-**Database Connection Issues:**
-```bash
-# Test Firestore connectivity
-gcloud firestore documents list --collection-id=_initialization
-
-# Check service account key
-gcloud iam service-accounts keys list --iam-account=YOUR_SERVICE_ACCOUNT
-
-# Verify project permissions
-gcloud projects get-iam-policy YOUR_PROJECT_ID
-```
-
-### **Development Tips**
-
-1. **Use API Documentation**: Visit `/docs` for interactive API testing
-2. **Check Logs Frequently**: `docker-compose logs -f` during development
-3. **Test Domain Authorization**: Always add domains before testing tracking
-4. **Verify Data Persistence**: Test that data survives container restarts
-5. **Frontend Hot Reload**: Changes to `frontend/src/` auto-reload in development
-6. **Backend Hot Reload**: Changes to `backend/app/` auto-reload with uvicorn
-7. **Database Inspection**: Use Firestore console to inspect collections directly
-
-## 📈 Scaling & Performance
-
-### **Current Capacity**
-- **Domain Lookups**: >1000 requests/second
-- **Client Management**: Hundreds of concurrent admin operations
-- **Data Storage**: Unlimited with Firestore's auto-scaling
-
-### **Scaling Strategies**
-- **Horizontal Scaling**: Cloud Run auto-scales based on request volume
-- **Database Scaling**: Firestore handles scaling automatically
-- **Caching**: Implement Redis for high-frequency domain lookups if needed
 
 ## 🤝 Contributing
 
@@ -430,13 +321,34 @@ gcloud projects get-iam-policy YOUR_PROJECT_ID
 - **Python**: Black formatting, type hints, comprehensive docstrings
 - **React**: ESLint configuration, functional components with hooks
 - **API Design**: RESTful conventions, proper HTTP status codes
-- **Testing**: Unit tests for critical domain authorization logic
+- **Security**: All admin endpoints protected, sensitive data encrypted
 
 ### **Deployment Process**
 1. Test changes locally with `docker-compose.local.yml`
-2. Verify all tests pass and no TypeScript/ESLint errors
+2. Verify all imports and dependencies
 3. Deploy to staging environment for integration testing
-4. Production deployment via Cloud Run
+4. Production deployment via `./deploy-production.sh`
+5. Configure authentication via Cloud Run console
+
+## 📚 Documentation
+
+- [Cloud Run Authentication Setup](documentation/CLOUD_RUN_AUTH_SETUP.md) - Detailed console configuration
+- [Backend API Documentation](backend/README.md) - FastAPI implementation details
+- [Frontend Documentation](frontend/README.md) - React interface guide
+
+## 🚨 Current Security Status
+
+### **Implemented ✅**
+- HTTP Basic Auth for admin interface
+- Cloud Run console credential management
+- Domain authorization for tracking VMs
+- Audit logging for configuration changes
+
+### **TODO 🔧**
+- API key authentication for service-to-service communication
+- Rate limiting for API endpoints
+- CORS restrictions for production
+- JWT-based authentication for multiple admin users
 
 ---
 
