@@ -1,7 +1,9 @@
 # backend/app/schemas.py
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, Dict, Any, List
-from datetime import datetime
+from datetime import datetime, timedelta
+import secrets
+import string
 
 # Domain schemas
 class DomainBase(BaseModel):
@@ -97,3 +99,65 @@ class ConfigurationChangeResponse(BaseModel):
     old_config: Optional[Dict[str, Any]]
     new_config: Optional[Dict[str, Any]]
     timestamp: datetime
+
+# API Key schemas
+class APIKeyBase(BaseModel):
+    name: str
+    permissions: List[str] = ["config:read"]  # Default permission for service-to-service
+    expires_at: Optional[datetime] = None
+
+class APIKeyCreate(APIKeyBase):
+    @validator('name')
+    def validate_name(cls, v):
+        if not v or len(v.strip()) < 3:
+            raise ValueError('API key name must be at least 3 characters')
+        if len(v.strip()) > 50:
+            raise ValueError('API key name must be less than 50 characters')
+        return v.strip()
+    
+    @validator('permissions')
+    def validate_permissions(cls, v):
+        valid_permissions = ["config:read", "admin:write"]
+        for permission in v:
+            if permission not in valid_permissions:
+                raise ValueError(f'Invalid permission: {permission}. Valid permissions: {valid_permissions}')
+        return v
+    
+    @validator('expires_at')
+    def validate_expiration(cls, v):
+        if v and v <= datetime.utcnow():
+            raise ValueError('Expiration date must be in the future')
+        return v
+
+class APIKeyResponse(APIKeyBase):
+    id: str
+    key_preview: str  # First 8 chars + "..." for display
+    created_at: datetime
+    created_by: str  # client_id that created this key
+    is_active: bool
+    last_used_at: Optional[datetime] = None
+
+class APIKeyCreateResponse(BaseModel):
+    """Response when creating a new API key - includes the actual key"""
+    id: str
+    name: str
+    api_key: str  # The actual key - only shown once!
+    key_preview: str
+    permissions: List[str]
+    created_at: datetime
+    expires_at: Optional[datetime]
+    message: str = "Store this API key securely - it will not be shown again"
+
+# Internal model for database storage
+class APIKeyDocument(BaseModel):
+    """Internal model for storing API keys in Firestore"""
+    id: str
+    name: str
+    key_hash: str  # Hashed version using bcrypt
+    permissions: List[str]
+    created_at: datetime
+    created_by: str  # client_id that created this key
+    expires_at: Optional[datetime]
+    is_active: bool
+    last_used_at: Optional[datetime]
+    usage_count: int = 0

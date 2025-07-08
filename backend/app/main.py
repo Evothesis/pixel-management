@@ -1,10 +1,10 @@
 # backend/app/main.py
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
-from typing import Optional, List
+from typing import Optional, List, Optional, Dict, Any
 import logging
 from datetime import datetime
 from google.cloud import firestore
@@ -15,7 +15,7 @@ from .schemas import (
     DomainCreate, DomainResponse, ClientConfigResponse
 )
 from .auth import get_current_user_client_id, require_owner_access, require_owner_or_self_access
-from .auth_middleware import BasicAuthMiddleware
+from .auth_middleware import BasicAuthMiddleware, require_config_read_permission
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -139,57 +139,92 @@ async def create_default_admin():
 # CRITICAL: Configuration API for Tracking VMs
 # ============================================================================
 
-@app.get("/api/v1/config/domain/{domain}", response_model=ClientConfigResponse)
-async def get_config_by_domain(domain: str):
+@app.get("/api/v1/config/domain/{domain}")
+async def get_domain_config(
+    domain: str, 
+    api_key_data: Dict[str, Any] = Depends(require_config_read_permission)
+):
     """
-    CRITICAL: Domain authorization for tracking VMs
-    This endpoint must be sub-100ms for production performance
+    Get client configuration for a domain (SERVICE-TO-SERVICE ONLY)
+    
+    NOW REQUIRES: X-API-Key header with config:read permission
+    Used by: server-infrastructure service for domain validation
+    
+    Security: API key authentication prevents unauthorized access
+    Performance: O(1) domain lookup with client configuration
     """
     try:
-        # O(1) lookup in domain index
+        # Normalize domain
+        domain = domain.lower().strip()
+        
+        # Look up domain in index
         domain_doc = firestore_client.domain_index_ref.document(domain).get()
         
         if not domain_doc.exists:
-            logger.warning(f"Unauthorized domain access attempt: {domain}")
-            raise HTTPException(
-                status_code=404, 
-                detail=f"Domain {domain} not authorized for tracking"
-            )
+            logger.warning(f"Domain {domain} not found (API key: {api_key_data['id']})")
+            raise HTTPException(status_code=404, detail="Domain not authorized")
         
         domain_data = domain_doc.to_dict()
         client_id = domain_data['client_id']
         
-        logger.info(f"Domain {domain} authorized for client {client_id}")
-        
         # Get client configuration
-        return await get_client_config(client_id)
+        client_doc = firestore_client.clients_ref.document(client_id).get()
+        
+        if not client_doc.exists or not client_doc.to_dict().get('is_active', True):
+            logger.warning(f"Client {client_id} for domain {domain} inactive (API key: {api_key_data['id']})")
+            raise HTTPException(status_code=404, detail="Client inactive")
+        
+        client_data = client_doc.to_dict()
+        
+        # Build response
+        config = {
+            "client_id": client_id,
+            "domain": domain,
+            "is_primary": domain_data.get('is_primary', False),
+            "privacy_level": client_data['privacy_level'],
+            "deployment_type": client_data['deployment_type'],
+            "vm_hostname": client_data.get('vm_hostname')
+        }
+        
+        logger.info(f"Domain {domain} → client {client_id} (API key: {api_key_data['id']})")
+        return config
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Domain lookup failed for {domain}: {e}")
+        logger.error(f"Domain config lookup failed for {domain}: {e}")
         raise HTTPException(status_code=500, detail="Configuration service error")
 
+
 @app.get("/api/v1/config/client/{client_id}", response_model=ClientConfigResponse)
-async def get_client_config(client_id: str):
+async def get_client_config(
+    client_id: str,
+    api_key_data: Dict[str, Any] = Depends(require_config_read_permission)
+):
     """
-    CRITICAL: Core configuration retrieval for tracking infrastructure
-    Returns client-specific tracking configuration
+    Get detailed client configuration (SERVICE-TO-SERVICE ONLY)
+    
+    NOW REQUIRES: X-API-Key header with config:read permission
+    Used by: server-infrastructure service for pixel generation
+    
+    Security: API key authentication prevents unauthorized access
+    Response: Full client configuration with privacy settings
     """
     try:
+        # Get client data
         client_doc = firestore_client.clients_ref.document(client_id).get()
         
         if not client_doc.exists:
-            logger.warning(f"Client not found: {client_id}")
+            logger.warning(f"Client {client_id} not found (API key: {api_key_data['id']})")
             raise HTTPException(status_code=404, detail="Client not found")
         
         client_data = client_doc.to_dict()
         
         if not client_data.get('is_active', True):
-            logger.warning(f"Inactive client access attempt: {client_id}")
+            logger.warning(f"Client {client_id} inactive (API key: {api_key_data['id']})")
             raise HTTPException(status_code=404, detail="Client inactive")
         
-        # Build configuration response (same format as SQLAlchemy version)
+        # Build configuration response
         config = ClientConfigResponse(
             client_id=client_data['client_id'],
             privacy_level=client_data['privacy_level'],
@@ -209,7 +244,7 @@ async def get_client_config(client_id: str):
             }
         )
         
-        logger.info(f"Served config for client {client_id} (privacy: {client_data['privacy_level']})")
+        logger.info(f"Client config served for {client_id} (privacy: {client_data['privacy_level']}, API key: {api_key_data['id']})")
         return config
         
     except HTTPException:
@@ -217,6 +252,7 @@ async def get_client_config(client_id: str):
     except Exception as e:
         logger.error(f"Client config lookup failed for {client_id}: {e}")
         raise HTTPException(status_code=500, detail="Configuration service error")
+
 
 # ============================================================================
 # ADMIN API: Client Management
@@ -617,9 +653,10 @@ async def remove_domain(client_id: str, domain: str):
 
 @app.get("/health")
 async def health_check():
-    """Health check with Firestore connectivity test"""
+    """Health check - NO authentication required for Cloud Run"""
+    # This endpoint intentionally has no authentication
+    # It's needed for Cloud Run health checks and load balancer probes
     try:
-        # Test Firestore connection
         firestore_connected = firestore_client.test_connection()
         
         if firestore_connected:
