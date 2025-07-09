@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 import os
-from typing import Optional, List, Optional, Dict, Any
+from typing import Optional, List, Dict, Any
 import logging
 from datetime import datetime
 from google.cloud import firestore
@@ -12,7 +12,8 @@ from google.cloud import firestore
 from .firestore_client import firestore_client
 from .schemas import (
     ClientCreate, ClientUpdate, ClientResponse, 
-    DomainCreate, DomainResponse, ClientConfigResponse
+    DomainCreate, DomainResponse, ClientConfigResponse,
+    APIKeyCreate, APIKeyCreateResponse, APIKeyResponse
 )
 from .auth import get_current_user_client_id, require_owner_access, require_owner_or_self_access
 from .auth_middleware import BasicAuthMiddleware, require_config_read_permission
@@ -77,6 +78,128 @@ async def debug_static():
     return result
 
 # ============================================================================
+# PUBLIC API: Configuration Endpoints (SERVICE-TO-SERVICE)
+# These endpoints are called by server-infrastructure service
+# PROTECTED BY API KEY AUTHENTICATION
+# ============================================================================
+
+@app.get("/api/v1/config/domain/{domain}")
+async def get_domain_config(
+    domain: str, 
+    api_key_data: Dict[str, Any] = Depends(require_config_read_permission)
+):
+    """
+    Get client configuration for a domain (SERVICE-TO-SERVICE ONLY)
+    
+    REQUIRES: X-API-Key header with config:read permission
+    Used by: server-infrastructure service for domain validation
+    
+    This endpoint validates that a domain is authorized and returns
+    the associated client information for tracking pixel generation.
+    """
+    try:
+        # Normalize domain
+        domain = domain.lower().strip()
+        
+        # Look up domain in domain index (O(1) lookup)
+        domain_doc = firestore_client.domain_index_ref.document(domain).get()
+        
+        if not domain_doc.exists:
+            logger.warning(f"Domain {domain} not found (API key: {api_key_data['id']})")
+            raise HTTPException(status_code=404, detail="Domain not authorized")
+        
+        domain_data = domain_doc.to_dict()
+        client_id = domain_data['client_id']
+        
+        # Get client configuration
+        client_doc = firestore_client.clients_ref.document(client_id).get()
+        
+        if not client_doc.exists:
+            logger.error(f"Client {client_id} for domain {domain} not found")
+            raise HTTPException(status_code=404, detail="Client configuration error")
+        
+        client_data = client_doc.to_dict()
+        
+        # Check if client is active
+        if not client_data.get('is_active', True):
+            logger.warning(f"Client {client_id} for domain {domain} inactive (API key: {api_key_data['id']})")
+            raise HTTPException(status_code=404, detail="Client inactive")
+        
+        # Build response (matches what server-infrastructure expects)
+        config = {
+            "client_id": client_id,
+            "domain": domain,
+            "is_primary": domain_data.get('is_primary', False),
+            "privacy_level": client_data['privacy_level'],
+            "deployment_type": client_data['deployment_type'],
+            "vm_hostname": client_data.get('vm_hostname')
+        }
+        
+        logger.info(f"Domain {domain} → client {client_id} (API key: {api_key_data['id']})")
+        return config
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Domain config lookup failed for {domain}: {e}")
+        raise HTTPException(status_code=500, detail="Configuration service error")
+
+@app.get("/api/v1/config/client/{client_id}", response_model=ClientConfigResponse)
+async def get_client_config_api(
+    client_id: str,
+    api_key_data: Dict[str, Any] = Depends(require_config_read_permission)
+):
+    """
+    Get detailed client configuration (SERVICE-TO-SERVICE ONLY)
+    
+    REQUIRES: X-API-Key header with config:read permission
+    Used by: server-infrastructure service for pixel generation
+    
+    This endpoint returns complete client configuration including
+    privacy settings, IP collection rules, and feature flags.
+    """
+    try:
+        client_doc = firestore_client.clients_ref.document(client_id).get()
+        
+        if not client_doc.exists:
+            logger.warning(f"Client {client_id} not found (API key: {api_key_data['id']})")
+            raise HTTPException(status_code=404, detail="Client not found")
+        
+        client_data = client_doc.to_dict()
+        if not client_data.get('is_active', True):
+            logger.warning(f"Client {client_id} inactive (API key: {api_key_data['id']})")
+            raise HTTPException(status_code=404, detail="Client inactive")
+        
+        # Build configuration response
+        config = ClientConfigResponse(
+            client_id=client_data['client_id'],
+            privacy_level=client_data['privacy_level'],
+            ip_collection={
+                "enabled": client_data['ip_collection_enabled'],
+                "hash_required": client_data['privacy_level'] in ["gdpr", "hipaa"],
+                "salt": client_data.get('ip_salt') if client_data['privacy_level'] in ["gdpr", "hipaa"] else None
+            },
+            consent={
+                "required": client_data['consent_required'],
+                "default_behavior": "block" if client_data['privacy_level'] in ["gdpr", "hipaa"] else "allow"
+            },
+            features=client_data.get('features', {}),
+            deployment={
+                "type": client_data['deployment_type'],
+                "hostname": client_data.get('vm_hostname')
+            }
+        )
+        
+        logger.info(f"Client config served for {client_id} (privacy: {client_data['privacy_level']}, API key: {api_key_data['id']})")
+        return config
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Client config lookup failed for {client_id}: {e}")
+        raise HTTPException(status_code=500, detail="Configuration service error")
+
+# ============================================================================
 # Startup: Initialize Firestore and Create Default Admin
 # ============================================================================
 
@@ -128,7 +251,7 @@ async def create_default_admin():
             }
             
             firestore_client.clients_ref.document(admin_client_id).set(admin_data)
-            logger.info("Created default Evothesis admin client")
+            logger.info(f"Created default admin client: {admin_client_id}")
         else:
             logger.info("Default admin client already exists")
             
@@ -136,123 +259,85 @@ async def create_default_admin():
         logger.error(f"Failed to create default admin client: {e}")
 
 # ============================================================================
-# CRITICAL: Configuration API for Tracking VMs
+# ADMIN API: API Key Management
 # ============================================================================
 
-@app.get("/api/v1/config/domain/{domain}")
-async def get_domain_config(
-    domain: str, 
-    api_key_data: Dict[str, Any] = Depends(require_config_read_permission)
-):
-    """
-    Get client configuration for a domain (SERVICE-TO-SERVICE ONLY)
-    
-    NOW REQUIRES: X-API-Key header with config:read permission
-    Used by: server-infrastructure service for domain validation
-    
-    Security: API key authentication prevents unauthorized access
-    Performance: O(1) domain lookup with client configuration
-    """
+@app.post("/api/v1/admin/api-keys", response_model=APIKeyCreateResponse)
+async def create_api_key(api_key_data: APIKeyCreate):
+    """Create new API key for service-to-service authentication"""
     try:
-        # Normalize domain
-        domain = domain.lower().strip()
+        user_client_id = get_current_user_client_id()
         
-        # Look up domain in index
-        domain_doc = firestore_client.domain_index_ref.document(domain).get()
-        
-        if not domain_doc.exists:
-            logger.warning(f"Domain {domain} not found (API key: {api_key_data['id']})")
-            raise HTTPException(status_code=404, detail="Domain not authorized")
-        
-        domain_data = domain_doc.to_dict()
-        client_id = domain_data['client_id']
-        
-        # Get client configuration
-        client_doc = firestore_client.clients_ref.document(client_id).get()
-        
-        if not client_doc.exists or not client_doc.to_dict().get('is_active', True):
-            logger.warning(f"Client {client_id} for domain {domain} inactive (API key: {api_key_data['id']})")
-            raise HTTPException(status_code=404, detail="Client inactive")
-        
-        client_data = client_doc.to_dict()
-        
-        # Build response
-        config = {
-            "client_id": client_id,
-            "domain": domain,
-            "is_primary": domain_data.get('is_primary', False),
-            "privacy_level": client_data['privacy_level'],
-            "deployment_type": client_data['deployment_type'],
-            "vm_hostname": client_data.get('vm_hostname')
-        }
-        
-        logger.info(f"Domain {domain} → client {client_id} (API key: {api_key_data['id']})")
-        return config
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Domain config lookup failed for {domain}: {e}")
-        raise HTTPException(status_code=500, detail="Configuration service error")
-
-
-@app.get("/api/v1/config/client/{client_id}", response_model=ClientConfigResponse)
-async def get_client_config(
-    client_id: str,
-    api_key_data: Dict[str, Any] = Depends(require_config_read_permission)
-):
-    """
-    Get detailed client configuration (SERVICE-TO-SERVICE ONLY)
-    
-    NOW REQUIRES: X-API-Key header with config:read permission
-    Used by: server-infrastructure service for pixel generation
-    
-    Security: API key authentication prevents unauthorized access
-    Response: Full client configuration with privacy settings
-    """
-    try:
-        # Get client data
-        client_doc = firestore_client.clients_ref.document(client_id).get()
-        
-        if not client_doc.exists:
-            logger.warning(f"Client {client_id} not found (API key: {api_key_data['id']})")
-            raise HTTPException(status_code=404, detail="Client not found")
-        
-        client_data = client_doc.to_dict()
-        
-        if not client_data.get('is_active', True):
-            logger.warning(f"Client {client_id} inactive (API key: {api_key_data['id']})")
-            raise HTTPException(status_code=404, detail="Client inactive")
-        
-        # Build configuration response
-        config = ClientConfigResponse(
-            client_id=client_data['client_id'],
-            privacy_level=client_data['privacy_level'],
-            ip_collection={
-                "enabled": client_data['ip_collection_enabled'],
-                "hash_required": client_data['privacy_level'] in ["gdpr", "hipaa"],
-                "salt": client_data.get('ip_salt') if client_data['privacy_level'] in ["gdpr", "hipaa"] else None
-            },
-            consent={
-                "required": client_data['consent_required'],
-                "default_behavior": "block" if client_data['privacy_level'] in ["gdpr", "hipaa"] else "allow"
-            },
-            features=client_data.get('features', {}),
-            deployment={
-                "type": client_data['deployment_type'],
-                "hostname": client_data.get('vm_hostname')
-            }
+        key_id, api_key = firestore_client.create_api_key(
+            name=api_key_data.name,
+            permissions=api_key_data.permissions,
+            created_by=user_client_id,
+            expires_at=api_key_data.expires_at
         )
         
-        logger.info(f"Client config served for {client_id} (privacy: {client_data['privacy_level']}, API key: {api_key_data['id']})")
-        return config
+        return APIKeyCreateResponse(
+            id=key_id,
+            name=api_key_data.name,
+            api_key=api_key,
+            key_preview=f"{api_key[:8]}...{api_key[-4:]}",
+            permissions=api_key_data.permissions,
+            created_at=datetime.utcnow(),
+            expires_at=api_key_data.expires_at
+        )
+        
+    except Exception as e:
+        logger.error(f"Failed to create API key: {e}")
+        raise HTTPException(status_code=500, detail="Failed to create API key")
+
+@app.get("/api/v1/admin/api-keys", response_model=List[APIKeyResponse])
+async def list_api_keys():
+    """List all API keys (with masked key values)"""
+    try:
+        user_client_id = get_current_user_client_id()
+        
+        api_keys = []
+        keys_stream = firestore_client.api_keys_ref.order_by('created_at', direction=firestore.Query.DESCENDING).stream()
+        
+        for doc in keys_stream:
+            key_data = doc.to_dict()
+            
+            api_keys.append(APIKeyResponse(
+                id=key_data['id'],
+                name=key_data['name'],
+                permissions=key_data['permissions'],
+                key_preview=f"evpx_****...****",
+                created_at=key_data['created_at'],
+                created_by=key_data['created_by'],
+                is_active=key_data['is_active'],
+                last_used_at=key_data.get('last_used_at'),
+                expires_at=key_data.get('expires_at')
+            ))
+        
+        logger.info(f"Listed {len(api_keys)} API keys for user {user_client_id}")
+        return api_keys
+        
+    except Exception as e:
+        logger.error(f"Failed to list API keys: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve API keys")
+
+@app.delete("/api/v1/admin/api-keys/{key_id}")
+async def delete_api_key(key_id: str):
+    """Deactivate an API key"""
+    try:
+        user_client_id = get_current_user_client_id()
+        
+        success = firestore_client.deactivate_api_key(key_id)
+        if success:
+            logger.info(f"API key {key_id} deactivated by {user_client_id}")
+            return {"message": f"API key {key_id} deactivated"}
+        else:
+            raise HTTPException(status_code=404, detail="API key not found")
         
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Client config lookup failed for {client_id}: {e}")
-        raise HTTPException(status_code=500, detail="Configuration service error")
-
+        logger.error(f"Failed to deactivate API key {key_id}: {e}")
+        raise HTTPException(status_code=500, detail="Failed to deactivate API key")
 
 # ============================================================================
 # ADMIN API: Client Management
@@ -330,53 +415,48 @@ async def create_client(client_data: ClientCreate):
             "billing_entity": billing_entity,
             "deployment_type": client_data.deployment_type,
             "privacy_level": client_data.privacy_level,
-            "ip_collection_enabled": client_data.privacy_level != "gdpr",  # Auto-disable for GDPR
+            "ip_collection_enabled": client_data.privacy_level == "standard",
             "ip_salt": ip_salt,
             "consent_required": client_data.privacy_level in ["gdpr", "hipaa"],
             "features": client_data.features,
-            "vm_hostname": None,  # Set during deployment
-            "billing_rate_per_1k": 0.01,  # Default rate
+            "billing_rate_per_1k": 0.01,
             "created_at": firestore.SERVER_TIMESTAMP,
             "updated_at": None,
             "is_active": True
         }
         
-        # Save to Firestore
+        # Store in Firestore
         firestore_client.clients_ref.document(client_id).set(client_doc)
         
         # Log configuration change
         change_doc = {
             "client_id": client_id,
             "changed_by": user_client_id,
-            "change_description": f"Client created with privacy level: {client_data.privacy_level}",
+            "change_description": f"Client created: {client_data.name}",
             "old_config": None,
-            "new_config": {
-                "privacy_level": client_data.privacy_level,
-                "deployment_type": client_data.deployment_type,
-                "created": True
-            },
+            "new_config": client_doc,
             "timestamp": firestore.SERVER_TIMESTAMP
         }
         firestore_client.config_changes_ref.add(change_doc)
         
-        # Build response (fetch the document to get server timestamps)
-        created_doc = firestore_client.clients_ref.document(client_id).get()
-        created_data = created_doc.to_dict()
+        # Build response
+        created_data = client_doc.copy()
+        created_data['created_at'] = datetime.utcnow()  # Replace server timestamp for response
         
         response = ClientResponse(
-            client_id=created_data['client_id'],
-            name=created_data['name'],
-            email=created_data.get('email'),
-            client_type=created_data.get('client_type', 'end_client'),
-            owner=created_data['owner'],
-            billing_entity=created_data['billing_entity'],
-            privacy_level=created_data['privacy_level'],
+            client_id=client_id,
+            name=client_data.name,
+            email=client_data.email,
+            client_type=client_data.client_type,
+            owner=client_data.owner,
+            billing_entity=billing_entity,
+            privacy_level=client_data.privacy_level,
             ip_collection_enabled=created_data['ip_collection_enabled'],
             consent_required=created_data['consent_required'],
-            features=created_data.get('features', {}),
-            deployment_type=created_data['deployment_type'],
-            vm_hostname=created_data.get('vm_hostname'),
-            billing_rate_per_1k=created_data.get('billing_rate_per_1k', 0.01),
+            features=client_data.features,
+            deployment_type=client_data.deployment_type,
+            vm_hostname=None,
+            billing_rate_per_1k=0.01,
             created_at=created_data['created_at'],
             updated_at=created_data.get('updated_at'),
             is_active=created_data.get('is_active', True),
@@ -437,43 +517,22 @@ async def update_client(client_id: str, update_data: ClientUpdate):
     try:
         user_client_id = get_current_user_client_id()
         
-        # Check authorization and get current client data
+        # Check authorization and get current data
         current_data = require_owner_access(user_client_id, client_id)
         
-        # Build update dict (only include provided fields)
+        # Build update dictionary (only include non-None values)
         update_dict = {}
-        if update_data.name is not None:
-            update_dict['name'] = update_data.name
-        if update_data.email is not None:
-            update_dict['email'] = update_data.email
-        if update_data.billing_entity is not None:
-            update_dict['billing_entity'] = update_data.billing_entity
-        if update_data.privacy_level is not None:
-            update_dict['privacy_level'] = update_data.privacy_level
-            # Auto-update related fields
-            update_dict['consent_required'] = update_data.privacy_level in ["gdpr", "hipaa"]
-            if update_data.privacy_level in ["gdpr", "hipaa"] and not current_data.get('ip_salt'):
-                update_dict['ip_salt'] = firestore_client.generate_ip_salt()
-        if update_data.ip_collection_enabled is not None:
-            update_dict['ip_collection_enabled'] = update_data.ip_collection_enabled
-        if update_data.consent_required is not None:
-            update_dict['consent_required'] = update_data.consent_required
-        if update_data.features is not None:
-            update_dict['features'] = update_data.features
-        if update_data.deployment_type is not None:
-            update_dict['deployment_type'] = update_data.deployment_type
-        if update_data.vm_hostname is not None:
-            update_dict['vm_hostname'] = update_data.vm_hostname
-        if update_data.is_active is not None:
-            update_dict['is_active'] = update_data.is_active
+        for field, value in update_data.dict(exclude_unset=True).items():
+            if value is not None:
+                update_dict[field] = value
         
         if not update_dict:
-            raise HTTPException(status_code=400, detail="No valid update fields provided")
+            raise HTTPException(status_code=400, detail="No valid updates provided")
         
-        # Add timestamp
+        # Always update the timestamp
         update_dict['updated_at'] = firestore.SERVER_TIMESTAMP
         
-        # Update document
+        # Update in Firestore
         firestore_client.clients_ref.document(client_id).update(update_dict)
         
         # Log configuration change
@@ -541,8 +600,7 @@ async def add_domain(client_id: str, domain_data: DomainCreate):
             "client_id": client_id,
             "domain": domain,
             "is_primary": domain_data.is_primary,
-            "created_at": firestore.SERVER_TIMESTAMP,
-            "is_active": True
+            "created_at": firestore.SERVER_TIMESTAMP
         }
         firestore_client.db.collection('domains').document(domain_doc_id).set(domain_doc)
         
@@ -550,7 +608,7 @@ async def add_domain(client_id: str, domain_data: DomainCreate):
         change_doc = {
             "client_id": client_id,
             "changed_by": user_client_id,
-            "change_description": f"Domain added: {domain} (primary: {domain_data.is_primary})",
+            "change_description": f"Domain added: {domain}",
             "old_config": None,
             "new_config": {"domain": domain, "is_primary": domain_data.is_primary},
             "timestamp": firestore.SERVER_TIMESTAMP
@@ -563,7 +621,7 @@ async def add_domain(client_id: str, domain_data: DomainCreate):
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Failed to add domain {domain_data.domain} to client {client_id}: {e}")
+        logger.error(f"Failed to add domain {domain} to client {client_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to add domain")
 
 @app.get("/api/v1/admin/clients/{client_id}/domains", response_model=List[DomainResponse])
@@ -575,22 +633,17 @@ async def get_client_domains(client_id: str):
         # Check authorization
         require_owner_or_self_access(user_client_id, client_id)
         
-        # Get domains from index
-        domains_stream = firestore_client.domain_index_ref.where('client_id', '==', client_id).stream()
-        
         domains = []
-        for doc in domains_stream:
+        domain_docs = firestore_client.domain_index_ref.where('client_id', '==', client_id).stream()
+        
+        for doc in domain_docs:
             domain_data = doc.to_dict()
-            domain_response = DomainResponse(
-                id=doc.id,  # domain name
+            domains.append(DomainResponse(
+                id=doc.id,
                 domain=domain_data['domain'],
                 is_primary=domain_data.get('is_primary', False),
                 created_at=domain_data['created_at']
-            )
-            domains.append(domain_response)
-        
-        # Sort by created_at descending
-        domains.sort(key=lambda x: x.created_at, reverse=True)
+            ))
         
         return domains
         
@@ -618,7 +671,7 @@ async def remove_domain(client_id: str, domain: str):
         
         domain_data = domain_doc.to_dict()
         if domain_data['client_id'] != client_id:
-            raise HTTPException(status_code=403, detail="Domain belongs to different client")
+            raise HTTPException(status_code=400, detail="Domain does not belong to this client")
         
         # Remove from domain index
         firestore_client.domain_index_ref.document(domain).delete()
@@ -653,10 +706,9 @@ async def remove_domain(client_id: str, domain: str):
 
 @app.get("/health")
 async def health_check():
-    """Health check - NO authentication required for Cloud Run"""
-    # This endpoint intentionally has no authentication
-    # It's needed for Cloud Run health checks and load balancer probes
+    """Health check with Firestore connectivity test"""
     try:
+        # Test Firestore connection
         firestore_connected = firestore_client.test_connection()
         
         if firestore_connected:
