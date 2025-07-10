@@ -1,12 +1,13 @@
-// frontend/src/services/api.js - Secure API service with dynamic authentication
+// frontend/src/services/api.js - FIXED VERSION
 import axios from 'axios';
-import React from 'react';
 
 // API base URL configuration
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 
                     (process.env.NODE_ENV === 'production' 
                         ? window.location.origin 
                         : 'http://localhost:8000');
+
+console.log('🌐 API Base URL:', API_BASE_URL);
 
 // Create axios instance
 const apiClient = axios.create({
@@ -17,62 +18,29 @@ const apiClient = axios.create({
     }
 });
 
-// Authentication state management
-class AuthManager {
-    constructor() {
-        this.apiKey = null;
-        this.loadStoredApiKey();
-    }
-    
-    loadStoredApiKey() {
-        const stored = sessionStorage.getItem('admin_api_key');
-        if (stored) {
-            this.apiKey = stored;
-        }
-    }
-    
-    setApiKey(key) {
-        this.apiKey = key;
-        if (key) {
-            sessionStorage.setItem('admin_api_key', key);
-        } else {
-            sessionStorage.removeItem('admin_api_key');
-        }
-    }
-    
-    getApiKey() {
-        return this.apiKey;
-    }
-    
-    isAuthenticated() {
-        return !!this.apiKey;
-    }
-    
-    logout() {
-        this.setApiKey(null);
-    }
-}
-
-const authManager = new AuthManager();
-
-// Request interceptor for authentication
+// FIXED: Request interceptor that reads directly from sessionStorage
 apiClient.interceptors.request.use(
     (config) => {
+        console.log('📤 API Request:', config.method?.toUpperCase(), config.url);
+        
         // Add authentication header for admin endpoints
         if (config.url && config.url.includes('/admin/')) {
-            const apiKey = authManager.getApiKey();
+            // FIXED: Read directly from sessionStorage instead of authManager
+            const apiKey = sessionStorage.getItem('admin_api_key');
             
             if (apiKey) {
                 config.headers.Authorization = `Bearer ${apiKey}`;
+                console.log('🔐 Added auth header for admin endpoint:', `Bearer ${apiKey.substring(0, 20)}...`);
             } else {
-                console.error('❌ Cannot authenticate admin request - not logged in');
-                throw new Error('Authentication required');
+                console.error('❌ No API key available in sessionStorage');
+                return Promise.reject(new Error('Authentication required'));
             }
         }
         
         return config;
     },
     (error) => {
+        console.error('📤 Request interceptor error:', error);
         return Promise.reject(error);
     }
 );
@@ -80,19 +48,30 @@ apiClient.interceptors.request.use(
 // Response interceptor for error handling
 apiClient.interceptors.response.use(
     (response) => {
+        console.log('📥 API Response:', response.status, response.config.url);
         return response;
     },
     (error) => {
+        const status = error.response?.status;
+        const url = error.config?.url;
+        
+        console.error('📥 API Error:', status, url, error.message);
+        
         // Handle authentication errors
-        if (error.response?.status === 401) {
-            console.error('🔒 Authentication failed');
+        if (status === 401) {
+            console.error('🔒 Authentication failed - invalid or expired API key');
             
-            // If it's an admin endpoint, the user needs to re-login
-            if (error.config.url?.includes('/admin/')) {
-                console.error('❌ Admin authentication failed - session expired');
-                // Clear stored API key
-                authManager.logout();
+            // If it's an admin endpoint, clear the API key
+            if (url?.includes('/admin/')) {
+                console.error('❌ Clearing invalid API key');
+                sessionStorage.removeItem('admin_api_key');
+                // Force page reload to go back to login
+                window.location.href = '/login';
             }
+        } else if (status === 403) {
+            console.error('🚫 Access denied - insufficient permissions');
+        } else if (status >= 500) {
+            console.error('🔥 Server error:', status);
         }
         
         return Promise.reject(error);
@@ -101,100 +80,116 @@ apiClient.interceptors.response.use(
 
 // API service methods
 export const apiService = {
-    // Authentication methods
-    auth: {
-        login: (apiKey) => {
-            authManager.setApiKey(apiKey);
-        },
-        
-        logout: () => {
-            authManager.logout();
-        },
-        
-        isAuthenticated: () => {
-            return authManager.isAuthenticated();
-        },
-        
-        getApiKey: () => {
-            return authManager.getApiKey();
-        }
-    },
-
     // Test API key validity
     testApiKey: async (apiKey) => {
+        console.log('🧪 Testing API key...');
+        
         try {
-            // Temporarily set API key for testing
-            const originalKey = authManager.getApiKey();
-            authManager.setApiKey(apiKey);
+            // Create a test request with the provided API key
+            const testResponse = await axios.get(
+                `${API_BASE_URL}/api/v1/admin/clients`,
+                {
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    timeout: 8000
+                }
+            );
             
-            // Test with a simple admin request
-            await apiClient.get('/api/v1/admin/clients');
-            
-            return { success: true };
+            console.log('✅ API key test successful:', testResponse.status);
+            return { 
+                success: true, 
+                status: testResponse.status,
+                data: testResponse.data 
+            };
         } catch (error) {
-            // Restore original key if test failed
-            return { success: false, error: error.message };
+            const status = error.response?.status;
+            
+            console.error('❌ API key test failed:', status, error.message);
+            
+            let errorMessage = 'Connection error';
+            if (status === 401) {
+                errorMessage = 'Invalid API key';
+            } else if (status === 403) {
+                errorMessage = 'Valid API key but insufficient permissions';
+            } else if (status >= 500) {
+                errorMessage = 'Server error - please try again';
+            }
+            
+            return { 
+                success: false, 
+                error: errorMessage,
+                status: status
+            };
         }
     },
 
     // Health check (public)
-    health: () => apiClient.get('/health'),
+    health: () => {
+        console.log('💓 Health check request');
+        return apiClient.get('/health');
+    },
 
     // Client management (admin - requires authentication)
     clients: {
-        list: () => apiClient.get('/api/v1/admin/clients'),
+        list: () => {
+            console.log('📋 Fetching client list');
+            return apiClient.get('/api/v1/admin/clients');
+        },
         
-        get: (clientId) => apiClient.get(`/api/v1/admin/clients/${clientId}`),
+        get: (clientId) => {
+            console.log('👤 Fetching client:', clientId);
+            return apiClient.get(`/api/v1/admin/clients/${clientId}`);
+        },
         
-        create: (clientData) => apiClient.post('/api/v1/admin/clients', clientData),
+        create: (clientData) => {
+            console.log('➕ Creating client:', clientData.name);
+            return apiClient.post('/api/v1/admin/clients', clientData);
+        },
         
-        update: (clientId, updates) => apiClient.put(`/api/v1/admin/clients/${clientId}`, updates),
+        update: (clientId, updates) => {
+            console.log('✏️ Updating client:', clientId);
+            return apiClient.put(`/api/v1/admin/clients/${clientId}`, updates);
+        },
         
-        delete: (clientId) => apiClient.delete(`/api/v1/admin/clients/${clientId}`)
+        delete: (clientId) => {
+            console.log('🗑️ Deleting client:', clientId);
+            return apiClient.delete(`/api/v1/admin/clients/${clientId}`);
+        }
     },
 
     // Domain management (admin - requires authentication)
     domains: {
-        list: (clientId) => apiClient.get(`/api/v1/admin/clients/${clientId}/domains`),
+        list: (clientId) => {
+            console.log('🌐 Fetching domains for client:', clientId);
+            return apiClient.get(`/api/v1/admin/clients/${clientId}/domains`);
+        },
         
-        add: (clientId, domainData) => apiClient.post(`/api/v1/admin/clients/${clientId}/domains`, domainData),
+        add: (clientId, domainData) => {
+            console.log('➕ Adding domain to client:', clientId, domainData.domain);
+            return apiClient.post(`/api/v1/admin/clients/${clientId}/domains`, domainData);
+        },
         
-        remove: (clientId, domain) => apiClient.delete(`/api/v1/admin/clients/${clientId}/domains/${domain}`)
+        remove: (clientId, domain) => {
+            console.log('🗑️ Removing domain from client:', clientId, domain);
+            return apiClient.delete(`/api/v1/admin/clients/${clientId}/domains/${domain}`);
+        }
     },
 
     // Configuration (public - no auth needed)
     config: {
-        getByDomain: (domain) => apiClient.get(`/api/v1/config/domain/${domain}`),
+        getByDomain: (domain) => {
+            console.log('🔍 Getting config by domain:', domain);
+            return apiClient.get(`/api/v1/config/domain/${domain}`);
+        },
         
-        getByClient: (clientId) => apiClient.get(`/api/v1/config/client/${clientId}`)
+        getByClient: (clientId) => {
+            console.log('🔍 Getting config by client:', clientId);
+            return apiClient.get(`/api/v1/config/client/${clientId}`);
+        }
     }
 };
 
-// React hook for authentication status
-export const useAuth = () => {
-    const [isAuthenticated, setIsAuthenticated] = React.useState(authManager.isAuthenticated());
-    
-    const login = (apiKey) => {
-        apiService.auth.login(apiKey);
-        setIsAuthenticated(true);
-    };
-    
-    const logout = () => {
-        apiService.auth.logout();
-        setIsAuthenticated(false);
-    };
-    
-    React.useEffect(() => {
-        // Check if user is still authenticated on component mount
-        setIsAuthenticated(authManager.isAuthenticated());
-    }, []);
-    
-    return {
-        isAuthenticated,
-        login,
-        logout,
-        apiKey: authManager.getApiKey()
-    };
-};
-
+// Export the configured axios instance as default
 export default apiClient;
