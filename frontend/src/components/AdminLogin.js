@@ -1,4 +1,4 @@
-// frontend/src/components/AdminLogin.js - Secure API Key Login
+// frontend/src/components/AdminLogin.js
 import React, { useState } from 'react';
 import { apiService } from '../services/api';
 
@@ -9,28 +9,36 @@ const AdminLogin = ({ onLoginSuccess }) => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        
+        if (!apiKey.trim()) {
+            setError('Please enter an API key');
+            return;
+        }
+        
         setLoading(true);
         setError(null);
+        
+        console.log('🔐 Attempting login...');
 
         try {
-            // Validate API key by attempting to list clients
-            const testResponse = await apiService.testApiKey(apiKey);
+            // Test the API key
+            const testResult = await apiService.testApiKey(apiKey.trim());
             
-            if (testResponse.success) {
-                // Store API key securely in session storage
-                sessionStorage.setItem('admin_api_key', apiKey);
+            if (testResult.success) {
+                console.log('✅ Login successful');
                 
-                // Notify parent component of successful login
-                onLoginSuccess(apiKey);
+                // Notify parent component
+                onLoginSuccess(apiKey.trim());
+                
+                // Clear form
+                setApiKey('');
             } else {
-                setError('Invalid API key. Please check your credentials.');
+                console.error('❌ Login failed:', testResult.error);
+                setError(testResult.error || 'Invalid API key. Please check your credentials.');
             }
         } catch (error) {
-            if (error.response?.status === 401) {
-                setError('Invalid API key. Access denied.');
-            } else {
-                setError('Connection error. Please try again.');
-            }
+            console.error('❌ Login error:', error);
+            setError('Connection error. Please try again.');
         } finally {
             setLoading(false);
         }
@@ -89,15 +97,18 @@ const AdminLogin = ({ onLoginSuccess }) => {
                             placeholder="Enter your admin API key"
                             required
                             disabled={loading}
+                            autoComplete="current-password"
                             style={{
                                 width: '100%',
                                 padding: '12px',
-                                border: '1px solid #e2e8f0',
+                                border: error ? '1px solid #e53e3e' : '1px solid #e2e8f0',
                                 borderRadius: '6px',
                                 fontSize: '14px',
                                 boxSizing: 'border-box',
-                                backgroundColor: loading ? '#f7fafc' : 'white'
+                                backgroundColor: loading ? '#f7fafc' : 'white',
+                                transition: 'border-color 0.2s, background-color 0.2s'
                             }}
+                            onFocus={() => setError(null)}
                         />
                     </div>
 
@@ -144,8 +155,26 @@ const AdminLogin = ({ onLoginSuccess }) => {
                     color: '#718096'
                 }}>
                     <strong>🔑 Need your API key?</strong><br/>
-                    Contact your system administrator or check your deployment credentials file.
+                    Check your secure deployment credentials file:<br/>
+                    <code style={{ backgroundColor: '#edf2f7', padding: '2px 4px', borderRadius: '2px' }}>
+                        ~/.evothesis-credentials/pixel-management-credentials-*.txt
+                    </code>
                 </div>
+                
+                {process.env.NODE_ENV === 'development' && (
+                    <div style={{
+                        marginTop: '16px',
+                        padding: '12px',
+                        backgroundColor: '#fffbeb',
+                        border: '1px solid #f59e0b',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        color: '#92400e'
+                    }}>
+                        <strong>🚧 Development Mode</strong><br/>
+                        Console logs are enabled for debugging
+                    </div>
+                )}
             </div>
         </div>
     );
