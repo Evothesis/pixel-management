@@ -1,10 +1,10 @@
-# backend/app/main.py - SECURED VERSION WITH ADMIN AUTHENTICATION
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List
 import logging
 from datetime import datetime
 from google.cloud import firestore
+import os
 
 from .firestore_client import firestore_client
 from .models import ClientDocument, DomainDocument, DomainIndexDocument  
@@ -12,12 +12,11 @@ from .schemas import (
     ClientCreate, ClientUpdate, ClientResponse, 
     DomainCreate, DomainResponse, ClientConfigResponse
 )
-# REPLACED OLD AUTH - Import secure admin authentication
 from .auth import verify_admin_access, log_admin_action
+from .rate_limiter import RateLimitMiddleware
 
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
-import os
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -25,14 +24,40 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Evothesis Pixel Management", version="1.0.0")
 
-# CORS middleware - TODO: Restrict origins in production
+# Secure CORS configuration - environment-based origins
+def get_cors_origins():
+    """Get CORS origins from environment with secure defaults"""
+    # Production origins from environment
+    cors_origins_env = os.getenv("CORS_ORIGINS", "")
+    production_origins = [origin.strip() for origin in cors_origins_env.split(",") if origin.strip()]
+    
+    # Development origins
+    dev_origins = [
+        "http://localhost:3000",
+        "http://localhost:8080",
+        "http://localhost:8001",
+        "http://localhost"
+    ]
+    
+    # Use production origins if configured, otherwise dev origins
+    if production_origins:
+        allowed_origins = production_origins
+        logger.info(f"Using production CORS origins: {len(allowed_origins)} domains")
+    else:
+        allowed_origins = dev_origins
+        logger.warning("Using development CORS origins - set CORS_ORIGINS for production")
+    
+    return allowed_origins
+
+# Configure CORS with specific origins instead of wildcard
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Restrict in production
+    allow_origins=get_cors_origins(),  # No more wildcards
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Content-Type", "Authorization", "X-Requested-With"],
 )
+app.add_middleware(RateLimitMiddleware)
 
 # ============================================================================
 # Startup: Initialize Firestore and Create Default Admin
@@ -161,6 +186,47 @@ async def get_client_config(client_id: str):
     except Exception as e:
         logger.error(f"Client config lookup failed for {client_id}: {e}")
         raise HTTPException(status_code=500, detail="Configuration service error")
+
+# Add this endpoint to backend/app/main.py in pixel-management
+
+@app.get("/api/v1/domains/all")
+async def get_all_authorized_domains():
+    """Return list of all authorized domains for CORS configuration"""
+    try:
+        # Get all domains from domain_index collection
+        domain_docs = list(firestore_client.domain_index_ref.stream())
+        
+        domains = []
+        for doc in domain_docs:
+            domain_data = doc.to_dict()
+            domains.append(domain_data['domain'])
+        
+        # Add development origins if in dev mode
+        if os.getenv("DEV_MODE", "false").lower() == "true":
+            dev_origins = [
+                "http://localhost:3000",
+                "http://localhost:8080", 
+                "http://localhost:8001",
+                "http://localhost"
+            ]
+            domains.extend(dev_origins)
+        
+        # Remove duplicates and sort
+        unique_domains = sorted(list(set(domains)))
+        
+        logger.info(f"Served {len(unique_domains)} authorized domains for CORS")
+        return {"domains": unique_domains}
+        
+    except Exception as e:
+        logger.error(f"Failed to get domains for CORS: {e}")
+        # Fallback to dev origins only
+        fallback_domains = [
+            "http://localhost:3000",
+            "http://localhost:8080",
+            "http://localhost:8001", 
+            "http://localhost"
+        ]
+        return {"domains": fallback_domains}
 
 # ============================================================================
 # SECURED ADMIN API: Client Management (AUTHENTICATION REQUIRED)
