@@ -387,6 +387,43 @@ async def update_client(client_id: str, updates: ClientUpdate, api_key_id: str =
         logger.error(f"Failed to update client: {e}")
         raise HTTPException(status_code=500, detail="Failed to update client")
 
+@app.delete("/api/v1/admin/clients/{client_id}")
+async def delete_client(client_id: str, api_key_id: str = Depends(verify_admin_access)):
+    """Delete client and all associated domains - REQUIRES ADMIN AUTH"""
+    try:
+        # Verify client exists
+        client_doc_ref = firestore_client.clients_ref.document(client_id)
+        client_doc = client_doc_ref.get()
+        
+        if not client_doc.exists:
+            raise HTTPException(status_code=404, detail="Client not found")
+        
+        client_data = client_doc.to_dict()
+        client_name = client_data.get('name', 'Unknown')
+        
+        # Prevent deletion of admin client
+        if client_data.get('client_type') == 'admin':
+            raise HTTPException(status_code=400, detail="Cannot delete admin client")
+        
+        # Delete all associated domains
+        domain_docs = list(firestore_client.domain_index_ref.where('client_id', '==', client_id).stream())
+        for domain_doc in domain_docs:
+            domain_doc.reference.delete()
+        
+        # Delete the client
+        client_doc_ref.delete()
+        
+        # Audit log
+        log_admin_action("delete_client", client_id, api_key_id, f"Deleted client: {client_name} and {len(domain_docs)} domains")
+        
+        return {"message": f"Client {client_name} and {len(domain_docs)} associated domains deleted successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to delete client: {e}")
+        raise HTTPException(status_code=500, detail="Failed to delete client")
+
 @app.post("/api/v1/admin/clients/{client_id}/domains")
 async def add_domain_to_client(client_id: str, domain_data: DomainCreate, api_key_id: str = Depends(verify_admin_access)):
     """Add domain to client - REQUIRES ADMIN AUTH"""

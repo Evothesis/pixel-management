@@ -1,10 +1,11 @@
 // frontend/src/App.js
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import AdminLogin from './components/AdminLogin';
-import ClientList from './pages/ClientList';
-import ClientForm from './pages/ClientForm';
+import ClientList from './components/ClientList';
+import ClientForm from './components/ClientForm';
+import Dashboard from './components/Dashboard';
 
 // Loading component
 const LoadingScreen = () => (
@@ -77,9 +78,18 @@ const AdminHeader = () => {
             alignItems: 'center'
         }}>
             <div>
-                <h1 style={{ margin: 0, fontSize: '18px' }}>
-                    🏢 Evothesis Pixel Management
-                </h1>
+                <Link 
+                    to="/admin/dashboard" 
+                    style={{ 
+                        textDecoration: 'none', 
+                        color: 'white',
+                        cursor: 'pointer'
+                    }}
+                >
+                    <h1 style={{ margin: 0, fontSize: '18px' }}>
+                        🏢 Evothesis Pixel Management
+                    </h1>
+                </Link>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                 <span style={{ fontSize: '12px', color: '#a0aec0' }}>
@@ -133,10 +143,23 @@ const AppContent = () => {
                     path="/login" 
                     element={
                         isAuthenticated ? (
-                            <Navigate to="/admin/clients" replace />
+                            <Navigate to="/admin/dashboard" replace />
                         ) : (
                             <AdminLogin onLoginSuccess={handleLoginSuccess} />
                         )
+                    } 
+                />
+
+                {/* Dashboard route - NEW */}
+                <Route 
+                    path="/admin/dashboard" 
+                    element={
+                        <ProtectedRoute>
+                            <AdminHeader />
+                            <div style={{ padding: '20px' }}>
+                                <Dashboard />
+                            </div>
+                        </ProtectedRoute>
                     } 
                 />
                 
@@ -180,7 +203,7 @@ const AppContent = () => {
                 {/* Admin root redirect */}
                 <Route 
                     path="/admin" 
-                    element={<Navigate to="/admin/clients" replace />} 
+                    element={<Navigate to="/admin/dashboard" replace />} 
                 />
                 
                 {/* Root route */}
@@ -188,7 +211,7 @@ const AppContent = () => {
                     path="/" 
                     element={
                         isAuthenticated ? (
-                            <Navigate to="/admin/clients" replace />
+                            <Navigate to="/admin/dashboard" replace />
                         ) : (
                             <Navigate to="/login" replace />
                         )
@@ -200,7 +223,7 @@ const AppContent = () => {
                     path="*" 
                     element={
                         isAuthenticated ? (
-                            <Navigate to="/admin/clients" replace />
+                            <Navigate to="/admin/dashboard" replace />
                         ) : (
                             <Navigate to="/login" replace />
                         )
