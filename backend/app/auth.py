@@ -23,7 +23,7 @@ class AdminAuthenticator:
         if not self.admin_api_key:
             # Generate secure API key if not provided
             self.admin_api_key = self._generate_secure_api_key()
-            logger.warning(f"No ADMIN_API_KEY provided. Generated: {self.admin_api_key}")
+            logger.warning(f"Generated admin key: ...{self.admin_api_key[-8:]}")
             logger.warning("Set ADMIN_API_KEY environment variable for production!")
         
         # Hash the API key for secure comparison
@@ -87,8 +87,3 @@ def log_admin_action(action: str, client_id: Optional[str], api_key_id: str, det
     }
     
     logger.info(f"ADMIN_AUDIT: {log_entry}")
-
-# Helper function to get current admin API key (for setup/debugging)
-def get_current_admin_api_key() -> str:
-    """Get current admin API key for setup purposes"""
-    return admin_auth.admin_api_key

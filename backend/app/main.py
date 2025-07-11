@@ -620,33 +620,6 @@ async def health_check():
         }
 
 # ============================================================================
-# Admin Setup Helper (Development)
-# ============================================================================
-
-@app.get("/admin/setup-info")
-async def get_admin_setup_info():
-    """Get admin setup information for development"""
-    from .auth import get_current_admin_api_key
-    
-    return {
-        "service": "Evothesis Pixel Management",
-        "version": "1.0.0",
-        "admin_api_key": get_current_admin_api_key(),
-        "usage": {
-            "header": "Authorization: Bearer <admin_api_key>",
-            "endpoints": {
-                "list_clients": "GET /api/v1/admin/clients",
-                "create_client": "POST /api/v1/admin/clients",
-                "get_client": "GET /api/v1/admin/clients/{client_id}",
-                "update_client": "PUT /api/v1/admin/clients/{client_id}",
-                "add_domain": "POST /api/v1/admin/clients/{client_id}/domains",
-                "list_domains": "GET /api/v1/admin/clients/{client_id}/domains",
-                "remove_domain": "DELETE /api/v1/admin/clients/{client_id}/domains/{domain}"
-            }
-        }
-    }
-
-# ============================================================================
 # Static File Serving (Production)
 # ============================================================================
 
