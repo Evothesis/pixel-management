@@ -1,289 +1,190 @@
 # Evothesis Pixel Management
 
-**Centralized configuration management system for Evothesis tracking infrastructure**
+**Centralized client configuration and domain authorization system for secure analytics infrastructure**
 
-🌐 **Production Deployment**: https://pixel-management-275731808857.us-central1.run.app
+🌐 **Production**: https://pixel-management-275731808857.us-central1.run.app
 
-## 🏗️ Architecture Overview
+## 🏗️ System Architecture
 
-The Pixel Management system provides centralized client configuration and domain authorization for all Evothesis tracking VMs, enabling secure, privacy-compliant analytics infrastructure.
+Multi-service analytics platform providing centralized configuration management, domain authorization, and privacy-compliant data collection.
 
 ```
 ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
-│  Pixel Management   │───▶│   Tracking VMs      │───▶│  Client Websites    │
-│  - Web Admin UI     │    │  - Domain validation│    │  - Authorized sites │
-│  - Client CRUD API  │    │  - Config retrieval │    │  - Dynamic pixels   │
-│  - Domain auth      │    │  - Privacy enforcement│    │                     │
+│ Pixel Management    │───▶│   Tracking VMs      │───▶│  Client Websites    │
+│ - Config management │    │ - Domain validation │    │ - Authorized domains│
+│ - Domain auth API   │    │ - Privacy compliance│    │ - Dynamic pixels    │
+│ - Admin interface   │    │ - Real-time config  │    │ - Event collection  │
 └─────────────────────┘    └─────────────────────┘    └─────────────────────┘
           │                                                        │
-          └────────────────────┐                                  │
-                               ▼                                  │
-                    ┌─────────────────────┐                      │
-                    │   Firestore DB      │                      │
-                    │  - Client configs   │◀─────────────────────┘
-                    │  - Domain index     │
-                    │  - Audit logs       │
-                    └─────────────────────┘
+          ▼                                                        ▼
+    ┌─────────────────┐                               ┌─────────────────────┐
+    │  Firestore DB   │                               │  Collection API     │
+    │ - Client configs│◀──────────────────────────────│ - Event processing  │
+    │ - Domain index  │                               │ - PostgreSQL/S3     │
+    │ - Audit logs    │                               │ - Export pipeline   │
+    └─────────────────┘                               └─────────────────────┘
 ```
 
-## 🎯 Key Features
+## 🎯 Core Features
 
-### **🔒 Domain Authorization System**
-- **Critical Security**: Only authorized domains can collect tracking data
-- **Real-time Validation**: Sub-100ms domain authorization for tracking VMs
-- **O(1) Lookup Performance**: Fast domain index prevents unauthorized access
+**🔒 Domain Authorization Engine**
+- Sub-100ms domain validation for tracking VMs
+- O(1) lookup performance via optimized Firestore index
+- Prevents unauthorized data collection
 
-### **🛡️ Privacy Compliance Management**
-- **Standard Level**: Full IP collection and basic tracking
-- **GDPR Compliance**: IP hashing, consent requirements, automatic PII redaction
-- **HIPAA Compliance**: Enhanced security, audit logging, BAA support
+**🛡️ Privacy Compliance Management**
+- **Standard**: Full tracking capabilities  
+- **GDPR**: IP hashing, consent requirements, PII redaction
+- **HIPAA**: Enhanced security, audit logging, dedicated infrastructure
 
-### **🏢 Multi-Tenant Architecture**
-- **Owner/Billing Model**: Flexible client ownership and billing relationships
-- **Agency Support**: Single owner can manage multiple client accounts
-- **Access Control**: Role-based permissions for client management
+**👥 Multi-Tenant Client Management**
+- Agency/enterprise model with owner-based billing
+- Flexible deployment: shared infrastructure or dedicated VMs
+- Real-time configuration updates across all tracking endpoints
 
-### **⚙️ Deployment Flexibility**
-- **Shared Infrastructure**: Cost-effective multi-tenant tracking VMs
-- **Dedicated VMs**: High-traffic clients with isolated infrastructure
-- **Seamless Migration**: Upgrade from shared to dedicated as needed
+## 📁 Repository Structure
 
-## 🚀 Technology Stack
+```
+pixel-management/
+├── backend/           # FastAPI configuration API
+│   ├── app/           # Core application logic
+│   │   ├── main.py    # API endpoints and auth
+│   │   ├── auth.py    # Admin authentication
+│   │   ├── schemas.py # Data validation models
+│   │   └── firestore_client.py # Database integration
+│   └── Dockerfile     # Container configuration
+├── frontend/          # React admin interface  
+│   ├── src/pages/     # Dashboard, client management
+│   ├── package.json   # Dependencies and scripts
+│   └── Dockerfile     # Development container
+├── api/               # Event collection service
+│   ├── app/           # FastAPI data collection API
+│   └── requirements.txt # Python dependencies
+├── deploy-pixel-management.sh # Production deployment
+└── Dockerfile         # Multi-stage production build
+```
 
-- **Frontend**: React 18 with modern hooks and routing
-- **Backend**: FastAPI with async/await and automatic API documentation
-- **Database**: Google Firestore for scalable, real-time data storage
-- **Hosting**: Google Cloud Run for serverless, auto-scaling deployment
-- **Authentication**: Google Cloud IAM with service account security
+## 🚀 Quick Start
 
-## 📡 API Endpoints
-
-### **Configuration API (For Tracking VMs)**
-
+### Production Deployment
 ```bash
-# Get client configuration by domain (CRITICAL for tracking security)
+# 1. Authenticate with Google Cloud
+gcloud auth login
+gcloud config set project YOUR_PROJECT_ID
+
+# 2. Deploy to Cloud Run
+./deploy-pixel-management.sh
+
+# 3. Configure authentication in Cloud Run console
+# Set: ADMIN_USERNAME=admin, ADMIN_PASSWORD=secure_password
+```
+
+### Local Development
+```bash
+# 1. Clone and setup
+git clone <repository>
+cd pixel-management
+
+# 2. Start development environment
+docker-compose -f docker-compose.local.yml up -d
+
+# 3. Access services
+# Admin UI: http://localhost:3000
+# Backend API: http://localhost:8000/docs
+# Collection API: http://localhost:8001
+```
+
+## 🔧 Configuration Management
+
+**Client Creation Workflow:**
+1. Create client with privacy level (Standard/GDPR/HIPAA)
+2. Configure deployment type (Shared/Dedicated)  
+3. Add authorized domains for tracking
+4. Deploy tracking pixels to websites
+
+**Domain Authorization:**
+- All domains must be explicitly authorized
+- Real-time validation prevents unauthorized collection
+- Primary domain designation for client identification
+
+## 🔐 Security & Compliance
+
+**Authentication:**
+- Production: HTTP Basic Auth via Cloud Run environment variables
+- Development: No authentication for local development
+- API Key authentication for service-to-service communication
+
+**Privacy Compliance:**
+- **GDPR**: Automatic IP hashing, consent management, data subject rights
+- **HIPAA**: Enhanced audit logging, encryption, dedicated infrastructure
+- **SOC 2**: Comprehensive audit trails and access controls
+
+## 🎛️ API Reference
+
+### Configuration Endpoints (No Auth)
+```bash
+# Domain authorization for tracking VMs
 GET /api/v1/config/domain/{domain}
 
-# Get configuration by client ID
+# Client configuration retrieval
 GET /api/v1/config/client/{client_id}
 ```
 
-**Example Response:**
-```json
-{
-  "client_id": "client_abc123def456",
-  "privacy_level": "gdpr",
-  "ip_collection": {
-    "enabled": false,
-    "hash_required": true,
-    "salt": "client-specific-salt-hash"
-  },
-  "consent": {
-    "required": true,
-    "default_behavior": "block"
-  },
-  "features": {},
-  "deployment": {
-    "type": "dedicated",
-    "hostname": "analytics.clientcompany.com"
-  }
-}
-```
-
-### **Admin Management API**
-
+### Admin Management (Auth Required)
 ```bash
 # Client management
-GET    /api/v1/admin/clients           # List all clients
-POST   /api/v1/admin/clients           # Create new client
-GET    /api/v1/admin/clients/{id}      # Get client details
-PUT    /api/v1/admin/clients/{id}      # Update client configuration
+GET    /api/v1/admin/clients
+POST   /api/v1/admin/clients
+PUT    /api/v1/admin/clients/{client_id}
 
 # Domain management  
-POST   /api/v1/admin/clients/{id}/domains/{domain}  # Add authorized domain
-GET    /api/v1/admin/clients/{id}/domains           # List client domains
-DELETE /api/v1/admin/clients/{id}/domains/{domain}  # Remove domain authorization
+POST   /api/v1/admin/clients/{client_id}/domains
+DELETE /api/v1/admin/clients/{client_id}/domains/{domain}
 ```
 
-## 🛠️ Local Development
+## 📊 Database Schema
 
-### **Prerequisites**
-- Docker Desktop
-- Node.js 18+ (for local frontend development)
-- Git
-- Google Cloud credentials (service account key)
+**Firestore Collections:**
+- `clients`: Client configurations and privacy settings
+- `domain_index`: O(1) domain → client_id lookup table  
+- `domains`: Detailed domain metadata
+- `configuration_changes`: Complete audit trail
 
-### **Quick Start**
+## 🛠️ Development
 
+**Requirements:**
+- Python 3.11+ (Backend)
+- Node.js 18+ (Frontend)
+- Docker & Docker Compose
+- Google Cloud SDK
+
+**Code Standards:**
+- Python: Black formatting, type hints, comprehensive tests
+- React: ESLint, functional components, responsive design
+- API: RESTful conventions, proper HTTP status codes
+
+## 🔍 Monitoring & Operations
+
+**Health Checks:**
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd pixel-management
+# System health
+curl https://pixel-management-url/health
 
-# Set up Google Cloud credentials
-# 1. Download service account key as credentials.json
-# 2. Place in project root
-# 3. Set environment variable
-export GOOGLE_CLOUD_PROJECT=your-project-id
-
-# Start development environment (backend only)
-docker-compose -f docker-compose.local.yml up -d
-
-# OR start with full web interface (requires frontend setup)
-docker-compose -f docker-compose.webapp.yml up -d
-
-# Access points:
-# - API Backend: http://localhost:8000
-# - API Documentation: http://localhost:8000/docs (Swagger UI)
-# - Health Check: http://localhost:8000/health
+# Authentication test  
+curl -u admin:password https://pixel-management-url/api/v1/admin/clients
 ```
 
-### **Development Workflow**
+**Troubleshooting:**
+- Deployment logs: `gcloud run services logs read pixel-management`
+- Domain authorization: Check domain exists in `domain_index` collection
+- Authentication: Verify environment variables in Cloud Run console
 
-```bash
-# Backend changes (hot reload enabled)
-# Edit files in backend/app/ - changes auto-reload
+## 📚 Documentation
 
-# View logs for debugging
-docker-compose -f docker-compose.local.yml logs -f
-
-# Reset development environment  
-docker-compose -f docker-compose.local.yml down
-docker-compose -f docker-compose.local.yml up -d
-```
-
-## 🌐 Production Deployment
-
-### **Google Cloud Run Deployment**
-
-**Current Production URL**: https://pixel-management-275731808857.us-central1.run.app
-
-#### **Prerequisites**
-- Google Cloud Project with billing enabled
-- `gcloud` CLI installed and authenticated
-- Docker installed locally
-
-#### **Deployment Steps**
-
-1. **Enable Required APIs**
-   ```bash
-   gcloud services enable run.googleapis.com
-   gcloud services enable artifactregistry.googleapis.com
-   gcloud services enable cloudbuild.googleapis.com
-   gcloud services enable firestore.googleapis.com
-   ```
-
-2. **Set Up Service Account Permissions**
-   ```bash
-   # Grant Firestore access to default Compute Engine service account
-   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
-     --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
-     --role="roles/datastore.user"
-   ```
-
-3. **Deploy to Cloud Run**
-   ```bash
-   gcloud run deploy pixel-management \
-     --source . \
-     --platform managed \
-     --region us-central1 \
-     --allow-unauthenticated \
-     --port 8080 \
-     --memory 512Mi \
-     --cpu 1 \
-     --min-instances 0 \
-     --max-instances 10 \
-     --set-env-vars GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID
-   ```
-
-4. **Verify Deployment**
-   ```bash
-   # Service health check
-   curl https://pixel-management-275731808857.us-central1.run.app/health
-
-   # Expected response:
-   # {"status":"healthy","service":"pixel-management","database":"firestore_connected"}
-   ```
-
-### **Performance Metrics**
-- **Response Time**: Monitor domain authorization endpoint latency
-- **Error Rate**: Track 4xx/5xx responses for debugging
-- **Database Performance**: Monitor Firestore read/write operations
-
-### **Operational Commands**
-```bash
-# View service logs
-gcloud run services logs read pixel-management --region us-central1
-
-# Check service status
-gcloud run services describe pixel-management --region us-central1
-
-# Update service configuration
-gcloud run services update pixel-management --region us-central1 --memory 1Gi
-```
-
-## 🚨 Troubleshooting
-
-### **Common Issues**
-
-**Health Check Fails:**
-```bash
-# Check Firestore permissions
-gcloud projects get-iam-policy YOUR_PROJECT_ID --flatten="bindings[].members" \
-  --filter="bindings.members:*compute@developer.gserviceaccount.com"
-
-# Verify Firestore API is enabled
-gcloud services list --enabled | grep firestore
-```
-
-**Frontend Not Loading:**
-- Check if static files are being served correctly
-- Verify React build completed successfully in container
-- Check browser console for JavaScript errors
-
-**API Calls Failing:**
-- Verify CORS configuration allows requests from frontend domain
-- Check that API routes are defined before catch-all routes in main.py
-- Confirm environment variables are set correctly
-
-**Domain Authorization Returning 404:**
-- Verify domain was added through admin interface
-- Check domain index exists in Firestore
-- Ensure domain string exactly matches (case-sensitive)
-
-### **Development Tips**
-
-1. **Use API Documentation**: Visit `/docs` for interactive API testing
-2. **Check Logs Frequently**: `docker-compose logs -f` during development
-3. **Test Domain Authorization**: Always add domains before testing tracking
-4. **Verify Data Persistence**: Test that data survives container restarts
-
-## 📈 Scaling & Performance
-
-### **Current Capacity**
-- **Domain Lookups**: >1000 requests/second
-- **Client Management**: Hundreds of concurrent admin operations
-- **Data Storage**: Unlimited with Firestore's auto-scaling
-
-### **Scaling Strategies**
-- **Horizontal Scaling**: Cloud Run auto-scales based on request volume
-- **Database Scaling**: Firestore handles scaling automatically
-- **Caching**: Implement Redis for high-frequency domain lookups if needed
-
-## 🤝 Contributing
-
-### **Development Standards**
-- **Python**: Black formatting, type hints, comprehensive docstrings
-- **React**: ESLint configuration, functional components with hooks
-- **API Design**: RESTful conventions, proper HTTP status codes
-- **Testing**: Unit tests for critical domain authorization logic
-
-### **Deployment Process**
-1. Test changes locally with `docker-compose.local.yml`
-2. Verify all tests pass and no TypeScript/ESLint errors
-3. Deploy to staging environment for integration testing
-4. Production deployment via Cloud Run
+- [Backend API](backend/README.md) - FastAPI implementation details
+- [Frontend Interface](frontend/README.md) - React admin interface  
+- [Collection API](api/README.md) - Event processing service
 
 ---
 
-**Built with ❤️ for centralized configuration management and domain authorization**
+**Built for enterprise-grade analytics infrastructure with privacy compliance and domain security**
