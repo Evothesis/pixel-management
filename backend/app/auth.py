@@ -1,64 +1,94 @@
-# backend/app/auth.py
-from fastapi import HTTPException
-from typing import Optional, Dict, Any
+# backend/app/auth.py - COMPLETE REPLACEMENT
+from fastapi import HTTPException, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import os
+import secrets
+import hashlib
 import logging
-
-from .firestore_client import firestore_client
+from typing import Optional
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-def get_current_user_client_id() -> str:
-    """Get current user's client ID - MVP implementation"""
-    # For MVP, return default admin client
-    # TODO: Implement proper JWT authentication from headers
-    return "client_evothesis_admin"
+# Security scheme for FastAPI docs
+security = HTTPBearer()
 
-def require_owner_access(user_client_id: str, target_client_id: str) -> Dict[str, Any]:
-    """Ensure user can admin the target client"""
-    try:
-        target_doc = firestore_client.clients_ref.document(target_client_id).get()
+class AdminAuthenticator:
+    """Simple, secure API key authentication for admin endpoints"""
+    
+    def __init__(self):
+        # Get admin API key from environment with secure fallback
+        self.admin_api_key = os.getenv("ADMIN_API_KEY")
         
-        if not target_doc.exists:
-            raise HTTPException(status_code=404, detail="Client not found")
+        if not self.admin_api_key:
+            # Generate secure API key if not provided
+            self.admin_api_key = self._generate_secure_api_key()
+            logger.warning(f"No ADMIN_API_KEY provided. Generated: {self.admin_api_key}")
+            logger.warning("Set ADMIN_API_KEY environment variable for production!")
         
-        target_data = target_doc.to_dict()
+        # Hash the API key for secure comparison
+        self.api_key_hash = hashlib.sha256(self.admin_api_key.encode()).hexdigest()
         
-        # Check if user is the owner OR the client themselves
-        if target_data['owner'] != user_client_id and user_client_id != target_client_id:
-            raise HTTPException(
-                status_code=403, 
-                detail="Access denied: Only the client owner can modify this client"
-            )
-        
-        return target_data
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Authorization check failed: {e}")
-        raise HTTPException(status_code=500, detail="Authorization service error")
+    def _generate_secure_api_key(self) -> str:
+        """Generate a cryptographically secure API key"""
+        return f"evothesis_admin_{secrets.token_urlsafe(32)}"
+    
+    def verify_api_key(self, provided_key: str) -> bool:
+        """Verify provided API key against stored hash"""
+        try:
+            provided_hash = hashlib.sha256(provided_key.encode()).hexdigest()
+            return secrets.compare_digest(self.api_key_hash, provided_hash)
+        except Exception as e:
+            logger.error(f"API key verification failed: {e}")
+            return False
+    
+    def get_api_key_id(self, api_key: str) -> str:
+        """Get identifier for API key (for audit logging)"""
+        # Return last 8 characters for audit trails
+        return f"admin_key_...{api_key[-8:]}" if len(api_key) >= 8 else "admin_key_short"
 
-def require_owner_or_self_access(user_client_id: str, target_client_id: str) -> Dict[str, Any]:
-    """Ensure user can view the target client (owner or self)"""
-    try:
-        target_doc = firestore_client.clients_ref.document(target_client_id).get()
-        
-        if not target_doc.exists:
-            raise HTTPException(status_code=404, detail="Client not found")
-        
-        target_data = target_doc.to_dict()
-        
-        # Check if user is the owner OR the client themselves  
-        if target_data['owner'] != user_client_id and user_client_id != target_client_id:
-            raise HTTPException(
-                status_code=403, 
-                detail="Access denied: Only the client owner or the client themselves can view this data"
-            )
-        
-        return target_data
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Authorization check failed: {e}")
-        raise HTTPException(status_code=500, detail="Authorization service error")
+# Global authenticator instance
+admin_auth = AdminAuthenticator()
+
+async def verify_admin_access(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
+    """
+    FastAPI dependency to verify admin API key
+    Returns API key identifier for audit logging
+    """
+    if not credentials:
+        logger.warning("Admin endpoint accessed without credentials")
+        raise HTTPException(
+            status_code=401,
+            detail="Missing authorization credentials",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    if not admin_auth.verify_api_key(credentials.credentials):
+        logger.warning(f"Invalid API key used for admin access: ...{credentials.credentials[-8:]}")
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key",
+            headers={"WWW-Authenticate": "Bearer"}
+        )
+    
+    # Return API key identifier for audit logging
+    api_key_id = admin_auth.get_api_key_id(credentials.credentials)
+    logger.info(f"Admin access granted to {api_key_id}")
+    return api_key_id
+
+def log_admin_action(action: str, client_id: Optional[str], api_key_id: str, details: Optional[str] = None):
+    """Log admin actions for audit trail"""
+    log_entry = {
+        "timestamp": datetime.utcnow().isoformat(),
+        "action": action,
+        "api_key_id": api_key_id,
+        "client_id": client_id,
+        "details": details
+    }
+    
+    logger.info(f"ADMIN_AUDIT: {log_entry}")
+
+# Helper function to get current admin API key (for setup/debugging)
+def get_current_admin_api_key() -> str:
+    """Get current admin API key for setup purposes"""
+    return admin_auth.admin_api_key

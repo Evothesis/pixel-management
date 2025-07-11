@@ -1,16 +1,12 @@
-﻿# docker-compose.local.yml
-# Firestore-based local development environment
-
-services:
+﻿services:
   backend:
     build: ./backend
     ports:
       - "8000:8000"
     environment:
       - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
-      - GOOGLE_APPLICATION_CREDENTIALS=/app/credentials/credentials.json
     volumes:
       - ./backend/app:/app/app
-      - ./credentials.json:/app/credentials/credentials.json:ro
+      - ~/.config/gcloud:/root/.config/gcloud:ro
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
     restart: unless-stopped
