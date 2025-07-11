@@ -1,322 +1,251 @@
 # Pixel Management Backend
 
-**FastAPI-based configuration API with Firestore database and HTTP Basic Auth protection**
+**FastAPI-based configuration API with Firestore database and secure admin authentication**
 
 ## 🏗️ Architecture
 
-The backend provides secure client configuration management and domain authorization services for the Evothesis tracking infrastructure.
+Provides secure client configuration management and real-time domain authorization for the Evothesis tracking infrastructure.
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   HTTP Client   │───▶│  FastAPI Backend │───▶│   Firestore DB  │
-│  - Admin UI     │    │  - Basic Auth   │    │  - Client data  │
-│  - Tracking VMs │    │  - CORS handling│    │  - Domain index │
-│  - API calls    │    │  - Input validation│  │  - Audit logs   │
+│   Admin UI      │───▶│  FastAPI API    │───▶│   Firestore DB  │
+│ - React frontend│    │ - Authentication│    │ - Client configs│
+│ - Form validation│    │ - CORS handling │    │ - Domain index  │
+│ - Domain mgmt   │    │ - Input validation│   │ - Audit trails │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
+                              │
+                              ▼
+                    ┌─────────────────┐
+                    │  Tracking VMs   │
+                    │ - Config lookup │
+                    │ - Domain auth   │
+                    │ - Privacy rules │
+                    └─────────────────┘
 ```
 
-## 🔐 Authentication & Security
+## 🔐 Authentication System
 
-### **HTTP Basic Authentication**
-- **Production Mode**: Automatically enabled when `ENVIRONMENT=production`
-- **Development Mode**: Authentication disabled for local development
-- **Credential Source**: Cloud Run environment variables
-- **Coverage**: All routes except `/health` endpoint
+**Environment-Based Security:**
+- **Production**: HTTP Basic Auth automatically enabled when `ENVIRONMENT=production`
+- **Development**: Authentication disabled for local development
+- **API Keys**: Secure admin API key system for service-to-service communication
 
-### **Authentication Middleware**
-```python
-# Automatic environment-based protection
-if os.getenv("ENVIRONMENT") == "production":
-    auth_middleware = BasicAuthMiddleware()
-    app.middleware("http")(auth_middleware)
-```
+**Security Features:**
+- Timing-safe password comparison using `secrets.compare_digest()`
+- Automatic secure API key generation if not configured
+- Health check endpoint exemption for Cloud Run monitoring
+- Comprehensive audit logging for all admin operations
 
-### **Security Features**
-- **Secure Credentials**: Uses `secrets.compare_digest()` for timing-safe comparison
-- **Temporary Passwords**: Auto-generates secure temporary password if none configured
-- **Clear Logging**: Detailed authentication status for debugging
-- **Health Check Exception**: `/health` endpoint bypasses auth for Cloud Run
-
-## 📁 Project Structure
+## 📁 Core Components
 
 ```
 backend/
 ├── app/
-│   ├── __init__.py
-│   ├── main.py                 # FastAPI application with auth
-│   ├── auth_middleware.py      # HTTP Basic Auth implementation
-│   ├── firestore_client.py     # Firestore connection and utilities
-│   ├── schemas.py              # Pydantic models for validation
-│   ├── auth.py                 # User context and authorization
-│   └── config.py               # Application configuration
-├── requirements.txt            # Python dependencies
-├── Dockerfile                  # Container configuration
-└── README.md                   # This file
+│   ├── main.py              # FastAPI app with auth middleware
+│   ├── auth.py              # Admin API key authentication  
+│   ├── firestore_client.py  # Database connection & utilities
+│   ├── schemas.py           # Pydantic validation models
+│   └── models.py            # Data structure definitions
+├── requirements.txt         # Python dependencies
+├── Dockerfile              # Container configuration
+└── README.md               # This documentation
 ```
 
-## 🚀 Core Components
+## 🚀 Key Features
 
-### **FastAPI Application** (`main.py`)
-- **Authentication Integration**: Automatic Basic Auth for production
-- **CORS Configuration**: Cross-origin support with security headers
-- **Health Monitoring**: System status and Firestore connectivity
-- **Error Handling**: Comprehensive exception handling and logging
-- **Static File Serving**: React frontend serving for production deployment
+**Client Configuration Management:**
+- Complete CRUD operations for client records
+- Privacy level enforcement (Standard/GDPR/HIPAA)
+- Deployment type configuration (Shared/Dedicated)
+- Real-time configuration updates
 
-### **Authentication Middleware** (`auth_middleware.py`)
-- **Environment Detection**: Production vs development mode
-- **Credential Management**: Secure password handling from environment
-- **Browser Integration**: Proper WWW-Authenticate headers
-- **Fallback Security**: Temporary password generation with clear instructions
+**Domain Authorization Engine:**
+- O(1) domain lookup performance via optimized Firestore index
+- Sub-100ms response times for tracking VM authorization
+- Comprehensive domain metadata management
+- Primary domain designation
 
-### **Firestore Integration** (`firestore_client.py`)
-- **Connection Management**: Auto-detecting authentication methods
-- **Collection References**: Pre-configured collection access
-- **Utility Functions**: Client ID generation, IP salt creation
-- **Connection Testing**: Health check integration
-
-### **Data Models** (`schemas.py`)
-- **Request Validation**: Pydantic models for API endpoints
-- **Response Formatting**: Consistent API response structures
-- **Data Validation**: Input sanitization and type checking
-- **Privacy Compliance**: Built-in validation for privacy levels
+**Audit & Compliance:**
+- Complete configuration change audit trail
+- Admin action logging with timestamps and user identification
+- Privacy compliance validation and enforcement
+- GDPR/HIPAA data handling requirements
 
 ## 📡 API Endpoints
 
-### **Critical Configuration Endpoints** (No Auth Required)
-```bash
-# Domain authorization for tracking VMs
-GET /api/v1/config/domain/{domain}
-# Returns client configuration for authorized domains
+### Configuration API (No Authentication)
+**Critical for tracking VM performance - must be sub-100ms**
 
-# Client configuration retrieval  
-GET /api/v1/config/client/{client_id}
-# Returns detailed client configuration
+```bash
+# Domain authorization lookup
+GET /api/v1/config/domain/{domain}
+# Returns: client_id, privacy_level, ip_collection settings
+
+# Client configuration retrieval
+GET /api/v1/config/client/{client_id}  
+# Returns: complete client configuration for tracking
 ```
 
-### **Admin Management Endpoints** (Basic Auth Required)
+### Admin API (Authentication Required)
+**Secured with API key authentication**
+
 ```bash
-# Client CRUD operations
-GET    /api/v1/admin/clients           # List all clients
-POST   /api/v1/admin/clients           # Create new client
-GET    /api/v1/admin/clients/{id}      # Get client details
-PUT    /api/v1/admin/clients/{id}      # Update client configuration
+# Client management
+GET    /api/v1/admin/clients              # List all clients
+POST   /api/v1/admin/clients              # Create new client
+GET    /api/v1/admin/clients/{client_id}  # Get client details
+PUT    /api/v1/admin/clients/{client_id}  # Update client config
 
 # Domain management
-POST   /api/v1/admin/clients/{id}/domains
-GET    /api/v1/admin/clients/{id}/domains
-DELETE /api/v1/admin/clients/{id}/domains/{domain}
+POST   /api/v1/admin/clients/{client_id}/domains     # Add domain
+GET    /api/v1/admin/clients/{client_id}/domains     # List domains  
+DELETE /api/v1/admin/clients/{client_id}/domains/{domain} # Remove domain
+
+# System management
+GET    /health                            # Health check (no auth)
+GET    /api/v1/admin/configuration-changes # Audit trail
 ```
 
-### **System Endpoints**
-```bash
-GET /health                            # System health check (no auth)
-GET /debug/static                      # Static file debugging (auth required)
+## 🗄️ Data Models
+
+**Client Configuration:**
+```python
+class ClientCreate(BaseModel):
+    name: str
+    owner: str                    # Who controls this client
+    billing_entity: str           # Who pays for usage
+    privacy_level: str            # "standard", "gdpr", "hipaa"
+    deployment_type: str          # "shared", "dedicated"
+    features: Dict[str, Any]      # Custom feature flags
 ```
 
-## ⚙️ Configuration
-
-### **Environment Variables**
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `GOOGLE_CLOUD_PROJECT` | Yes | - | Google Cloud project ID |
-| `ENVIRONMENT` | Yes | `development` | Deployment environment |
-| `ADMIN_USERNAME` | Production | `admin` | Basic auth username |
-| `ADMIN_PASSWORD` | Production | Auto-generated | Basic auth password |
-| `PORT` | No | `8080` | Server port (Cloud Run sets this) |
-| `LOG_LEVEL` | No | `INFO` | Logging verbosity |
-
-### **Authentication Configuration**
-```bash
-# Production deployment (via Cloud Run console)
-ENVIRONMENT=production
-ADMIN_USERNAME=admin
-ADMIN_PASSWORD=YourSecurePassword123
-
-# Development (no auth required)
-ENVIRONMENT=development
+**Domain Management:**
+```python  
+class DomainCreate(BaseModel):
+    domain: str                   # Validated domain name
+    is_primary: bool = False      # Primary domain flag
 ```
 
-### **Firestore Configuration**
-- **Authentication**: Automatic via Google Cloud service account
-- **Database**: Auto-created in specified Google Cloud project
-- **Collections**: Automatically initialized on startup
+**Configuration Response:**
+```python
+class ClientConfigResponse(BaseModel):
+    client_id: str
+    privacy_level: str
+    ip_collection: Dict[str, Any] # IP handling rules
+    consent: Dict[str, Any]       # Consent requirements
+    features: Dict[str, Any]      # Feature configuration
+```
 
-## 🛠️ Local Development
+## 🔧 Local Development
 
-### **Setup**
+**Setup:**
 ```bash
-# 1. Install dependencies
-cd backend
+# 1. Clone repository
+git clone <repository>
+cd pixel-management/backend
+
+# 2. Install dependencies
 pip install -r requirements.txt
 
-# 2. Set up Google Cloud credentials
+# 3. Set environment variables
 export GOOGLE_CLOUD_PROJECT=your-project-id
-# Place service account key as ../credentials.json
+export ENVIRONMENT=development  # Disables auth
 
-# 3. Run development server
-export ENVIRONMENT=development
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+# 4. Run development server
+uvicorn app.main:app --reload --port 8000
 ```
 
-### **Development vs Production**
-- **Development**: No authentication, detailed logging, hot reload
-- **Production**: Basic Auth enabled, optimized logging, static file serving
-
-### **Testing Authentication**
-```bash
-# Development (no auth)
-curl http://localhost:8000/api/v1/admin/clients
-
-# Production (with auth)
-curl -u admin:password https://production-url/api/v1/admin/clients
-```
+**Development Features:**
+- Auto-reload on code changes
+- Interactive API documentation at `/docs`
+- No authentication required
+- Detailed logging for debugging
 
 ## 🚀 Production Deployment
 
-### **Cloud Run Deployment**
-The backend is designed for serverless deployment on Google Cloud Run:
-
+**Cloud Run Deployment:**
 ```bash
-# Deploy with authentication setup
-./deploy-production.sh
-
-# Then configure via Cloud Run console:
-# ADMIN_USERNAME=admin
-# ADMIN_PASSWORD=YourSecurePassword
+# Deploy via root deployment script
+cd pixel-management/
+./deploy-pixel-management.sh
 ```
 
-### **Container Configuration**
-- **Base Image**: `python:3.11-slim`
-- **Port**: 8080 (Cloud Run standard)
-- **Health Check**: `/health` endpoint
-- **Static Files**: React frontend served from `/app/static`
+**Required Environment Variables:**
+```bash
+ENVIRONMENT=production          # Enables authentication
+GOOGLE_CLOUD_PROJECT=project-id # Firestore project
+ADMIN_API_KEY=secure-key       # Admin authentication
+```
 
-### **Scaling Configuration**
-- **Memory**: 512Mi (configurable)
-- **CPU**: 1 vCPU (configurable)
-- **Concurrency**: 80 requests per instance
-- **Auto-scaling**: 0-10 instances based on traffic
+**Production Configuration:**
+- Automatic HTTPS via Cloud Run
+- Firestore authentication via service account
+- Health checks for auto-scaling
+- CORS configuration for frontend integration
 
 ## 🔍 Monitoring & Debugging
 
-### **Health Monitoring**
+**Health Check:**
 ```bash
-# Check service health
+# Basic connectivity test
 curl https://your-service-url/health
 
 # Expected response:
 {
   "status": "healthy",
-  "service": "pixel-management",
+  "service": "pixel-management", 
   "database": "firestore_connected",
-  "timestamp": "2025-01-07T12:00:00.000Z"
+  "timestamp": "2025-01-15T10:30:00Z"
 }
 ```
 
-### **Authentication Debugging**
+**Admin Authentication Test:**
 ```bash
-# Check auth status in logs
-gcloud run services logs read pixel-management --region us-central1
-
-# Look for these messages:
-# "✅ Basic auth configured for user: admin"
-# "🔐 Authentication status: username=admin, password_set=True"
+# Test API key authentication
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+     https://your-service-url/api/v1/admin/clients
 ```
 
-### **Common Issues**
+**Common Issues:**
+- **500 errors**: Check Firestore permissions and project ID
+- **401 errors**: Verify ADMIN_API_KEY environment variable
+- **403 errors**: Check admin API key in Authorization header
+- **Import errors**: Verify all dependencies in requirements.txt
 
-**Authentication Not Working**
-- Verify `ENVIRONMENT=production` is set
-- Check `ADMIN_USERNAME` and `ADMIN_PASSWORD` in Cloud Run console
-- Redeploy revision after setting environment variables
+## 📊 Performance Targets
 
-**Firestore Connection Issues**
-- Verify `GOOGLE_CLOUD_PROJECT` is correct
-- Check service account permissions for Firestore
-- Enable Firestore API in Google Cloud console
+**Response Time SLAs:**
+- Domain authorization: <100ms (critical for tracking performance)
+- Admin operations: <500ms
+- Health checks: <50ms
+- Bulk operations: <2000ms
 
-**Import Errors on Startup**
-- Check all required dependencies in `requirements.txt`
-- Verify file structure matches import statements
-- Review deployment logs for specific missing modules
+**Scaling Characteristics:**
+- Memory usage: ~200MB baseline, ~512MB under load
+- CPU usage: Low except during bulk configuration updates
+- Database: Firestore auto-scales transparently
+- Concurrent requests: 80+ per instance
 
-## 📊 Performance Considerations
+## 🛡️ Security Implementation
 
-### **Response Time Targets**
-- **Domain Authorization**: <100ms (critical for tracking performance)
-- **Admin Operations**: <500ms
-- **Health Checks**: <50ms
+**Authentication Flow:**
+1. Admin UI sends API key in Authorization header
+2. `verify_admin_access()` validates key securely
+3. All admin actions logged with user identification
+4. Configuration endpoints remain public for tracking VMs
 
-### **Optimization Features**
-- **Async Operations**: All I/O operations use async/await
-- **Connection Pooling**: Firestore client reuse
-- **Efficient Queries**: O(1) domain lookups via index
-- **Minimal Dependencies**: Only essential packages included
+**Data Protection:**
+- All admin actions audited in `configuration_changes` collection
+- IP salts generated for GDPR/HIPAA clients
+- Secure credential handling with proper environment variable usage
+- Input validation via Pydantic models prevents injection attacks
 
-### **Scaling Guidelines**
-- **Single Instance**: Handles 80 concurrent requests
-- **Memory Usage**: ~200MB baseline, ~512MB under load
-- **CPU Usage**: Low except during bulk operations
-- **Database**: Firestore auto-scales transparently
-
-## 🔒 Security Implementation
-
-### **Input Validation**
-- **Pydantic Models**: All API inputs validated with type checking
-- **Domain Validation**: Domain names sanitized and normalized
-- **SQL Injection Prevention**: Firestore queries are parameterized
-- **XSS Protection**: All outputs properly escaped
-
-### **Authentication Security**
-- **Timing-Safe Comparison**: Uses `secrets.compare_digest()`
-- **Secure Headers**: Proper WWW-Authenticate implementation
-- **Password Requirements**: Minimum 8 characters enforced
-- **No Password Logging**: Credentials never appear in logs
-
-### **Data Protection**
-- **Audit Logging**: All configuration changes tracked
-- **Privacy Compliance**: Client-specific privacy level enforcement
-- **Access Control**: Domain authorization prevents unauthorized access
-- **Secure Defaults**: Conservative security settings by default
-
-## 🧪 Testing
-
-### **Manual Testing**
-```bash
-# Test authentication
-curl -u admin:password https://your-url/api/v1/admin/clients
-
-# Test domain authorization
-curl https://your-url/api/v1/config/domain/example.com
-
-# Test health endpoint
-curl https://your-url/health
-```
-
-### **Load Testing**
-```bash
-# Basic load test
-ab -n 100 -c 10 -A admin:password https://your-url/api/v1/admin/clients
-```
-
-## 🚨 Security Status
-
-### **Current Security Features ✅**
-- HTTP Basic Authentication for admin endpoints
-- Environment-based authentication control
-- Secure credential comparison
-- Health endpoint security exemption
-- Comprehensive audit logging
-
-### **TODO Security Enhancements 🔧**
-- API key authentication for service-to-service calls
-- Rate limiting per IP/client
-- CORS restrictions for production domains
-- JWT-based authentication for multiple users
-- Request signing for critical endpoints
+**Access Control:**
+- Admin endpoints protected with API key authentication
+- Configuration endpoints public but read-only
+- Health endpoint public for Cloud Run monitoring
+- Audit trail immutable for compliance requirements
 
 ---
 
-**Built with ❤️ for secure configuration management and domain authorization**
+**Production-ready FastAPI service powering centralized analytics configuration**
