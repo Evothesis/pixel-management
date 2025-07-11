@@ -1,4 +1,4 @@
-# backend/app/schemas.py
+# backend/app/schemas.py - API request/response schemas
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, Dict, Any, List
 from datetime import datetime
@@ -18,6 +18,9 @@ class DomainCreate(DomainBase):
 class DomainResponse(DomainBase):
     id: str                                 # Firestore document ID
     created_at: datetime
+    
+    class Config:
+        from_attributes = True
 
 # Client schemas
 class ClientBase(BaseModel):
@@ -30,6 +33,7 @@ class ClientCreate(ClientBase):
     billing_entity: Optional[str] = None    # Optional - defaults to owner
     deployment_type: str = "shared"
     privacy_level: str = "standard"
+    vm_hostname: Optional[str] = None
     features: Dict[str, Any] = {}
     
     @validator('privacy_level')
@@ -64,36 +68,36 @@ class ClientUpdate(BaseModel):
 
 class ClientResponse(ClientBase):
     client_id: str
-    owner: str                              # Who controls this client
-    billing_entity: str                     # Who pays for this client
+    owner: str
+    billing_entity: str
     privacy_level: str
     ip_collection_enabled: bool
     consent_required: bool
     features: Dict[str, Any]
     deployment_type: str
-    vm_hostname: Optional[str]
+    vm_hostname: Optional[str] = None
     billing_rate_per_1k: float
     created_at: datetime
-    updated_at: Optional[datetime]
+    updated_at: Optional[datetime] = None
     is_active: bool
-    domain_count: int = 0                   # Computed field for convenience
+    domain_count: int = 0                   # Count of domains for this client
+    
+    class Config:
+        from_attributes = True
 
-# Configuration schemas (for tracking VMs)
+# Configuration response for tracking VMs
 class ClientConfigResponse(BaseModel):
-    """Configuration response for tracking infrastructure"""
     client_id: str
     privacy_level: str
-    ip_collection: Dict[str, Any]
-    consent: Dict[str, Any]
+    ip_collection: Dict[str, Any]           # {enabled, hash_required, salt}
+    consent: Dict[str, Any]                 # {required, default_behavior}
     features: Dict[str, Any]
-    deployment: Dict[str, Any]
+    deployment: Dict[str, Any]              # {type, hostname}
 
-# Configuration change tracking
-class ConfigurationChangeResponse(BaseModel):
-    id: str
-    client_id: str
-    changed_by: str
-    change_description: str
-    old_config: Optional[Dict[str, Any]]
-    new_config: Optional[Dict[str, Any]]
-    timestamp: datetime
+# Health check response
+class HealthResponse(BaseModel):
+    status: str
+    service: str
+    database: str
+    timestamp: str
+    error: Optional[str] = None
