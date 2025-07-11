@@ -360,3 +360,5 @@ vite.config.ts.timestamp-*
 # Packages
 package-lock.json
 
+__pycache__/
+*.pyc
