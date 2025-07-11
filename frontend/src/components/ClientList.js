@@ -26,6 +26,22 @@ const ClientList = () => {
         }
     };
 
+    const handleDeleteClient = async (clientId, clientName) => {
+    // Confirmation dialog
+        if (!window.confirm(`Are you sure you want to delete "${clientName}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            await apiService.clients.delete(clientId);
+            // Refresh the client list
+            fetchClients();
+        } catch (error) {
+            console.error('Failed to delete client:', error);
+            alert('Failed to delete client. Please try again.');
+        }
+    };
+
     const getPrivacyLevelColor = (level) => {
         switch (level) {
             case 'standard': return '#4299e1';
@@ -89,6 +105,20 @@ const ClientList = () => {
                 <h1 style={{ margin: 0, color: '#2d3748' }}>
                     📊 Client Management
                 </h1>
+                <Link 
+                    to="/admin/dashboard"
+                    style={{
+                        backgroundColor: '#805ad5',
+                        color: 'white',
+                        padding: '10px 16px',
+                        textDecoration: 'none',
+                        borderRadius: '6px',
+                        fontSize: '14px',
+                        fontWeight: '500'
+                    }}
+                >
+                    ← Back to Dashboard
+                </Link>
                 <Link 
                     to="/admin/clients/new"
                     style={{
@@ -223,6 +253,22 @@ const ClientList = () => {
                                 >
                                     ⚙️ Edit
                                 </Link>
+                                <button
+                                    onClick={() => handleDeleteClient(client.client_id, client.name)}
+                                    style={{
+                                        flex: 1,
+                                        backgroundColor: '#e53e3e',
+                                        color: 'white',
+                                        border: 'none',
+                                        padding: '8px 12px',
+                                        borderRadius: '4px',
+                                        fontSize: '12px',
+                                        cursor: 'pointer',
+                                        fontWeight: '500'
+                                    }}
+                                >
+                                    🗑️ Delete
+                                </button>
                                 <button
                                     onClick={() => {
                                         // TODO: Implement domain management
