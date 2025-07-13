@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request, Path
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List
 import logging
@@ -15,6 +15,8 @@ from .schemas import (
 from .auth import verify_admin_access, log_admin_action
 from .rate_limiter import RateLimitMiddleware
 
+from .pixel_serving import serve_pixel
+
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 
@@ -23,6 +25,16 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Evothesis Pixel Management", version="1.0.0")
+
+# ============================================================================
+# Environment Configuration
+# ============================================================================
+
+# Collection endpoint configuration
+COLLECTION_API_URL = os.getenv(
+    "COLLECTION_API_URL", 
+    "http://localhost:8001/collect"  # Default to local server-infrastructure
+)
 
 # Secure CORS configuration - environment-based origins
 def get_cors_origins():
@@ -638,3 +650,20 @@ if os.path.exists("/app/static"):
         if path.startswith("api/"):
             raise HTTPException(status_code=404, detail="API endpoint not found")
         return FileResponse("/app/static/index.html")
+    
+# ============================================================================
+# Pixel Serving (Dynamic JavaScript Generation)
+# ============================================================================
+
+@app.get("/pixel/{client_id}/tracking.js")
+async def serve_pixel_js(
+    request: Request,
+    client_id: str = Path(..., regex=r'^[a-zA-Z0-9_-]+$', max_length=100)
+):
+    """
+    Serve client-specific tracking JavaScript with domain authorization
+    
+    SECURITY: Validates requesting domain is authorized for specified client_id
+    PERFORMANCE: Template caching with 5-minute browser cache
+    """
+    return await serve_pixel(request, client_id, COLLECTION_API_URL)
