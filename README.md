@@ -1,13 +1,5 @@
 # Evothesis Pixel Management
 
-**Centralized client configuration and domain authorization system for secure analytics infrastructure**
-
-🌐 **Production**: https://pixel-management-275731808857.us-central1.run.app
-
-## 🏗️ System Architecture
-
-Multi-service analytics platform providing centralized configuration management, domain authorization, and privacy-compliant data collection.
-
 ```
 ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐
 │ Pixel Management    │───▶│   Tracking VMs      │───▶│  Client Websites    │
@@ -74,10 +66,32 @@ gcloud config set project YOUR_PROJECT_ID
 
 # 2. Deploy to Cloud Run
 ./deploy-pixel-management.sh
-
-# 3. Configure authentication in Cloud Run console
-# Set: ADMIN_USERNAME=admin, ADMIN_PASSWORD=secure_password
 ```
+
+### 🔑 Retrieving API Key
+
+After deployment, retrieve your API key using either method:
+
+**Primary Method (Local Machine):**
+```bash
+# View saved credentials from deployment
+cat ~/.evothesis-credentials/pixel-management-credentials-*.txt
+```
+
+**Backup Method (Cloud Environment Variables):**
+```bash
+# Query Cloud Run service directly
+gcloud run services describe pixel-management \
+  --region=us-central1 \
+  --format='export' | grep ADMIN_API_KEY
+```
+
+**Frontend Access:**
+1. Visit your deployed service URL
+2. Enter the API key from credentials file at login screen
+3. Access full admin panel functionality
+
+**Note:** The credentials file is created locally during deployment. If deploying from a different machine, use the Cloud Run method or redeploy to generate new credentials.
 
 ### Local Development
 ```bash
@@ -110,9 +124,9 @@ docker-compose -f docker-compose.local.yml up -d
 ## 🔐 Security & Compliance
 
 **Authentication:**
-- Production: HTTP Basic Auth via Cloud Run environment variables
+- Production: API key authentication via secure credential management
 - Development: No authentication for local development
-- API Key authentication for service-to-service communication
+- Credentials stored outside git repository with restricted file permissions
 
 **Privacy Compliance:**
 - **GDPR**: Automatic IP hashing, consent management, data subject rights
@@ -171,7 +185,8 @@ DELETE /api/v1/admin/clients/{client_id}/domains/{domain}
 curl https://pixel-management-url/health
 
 # Authentication test  
-curl -u admin:password https://pixel-management-url/api/v1/admin/clients
+curl -H "Authorization: Bearer YOUR_API_KEY" \
+     https://pixel-management-url/api/v1/admin/clients
 ```
 
 **Troubleshooting:**
