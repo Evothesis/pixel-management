@@ -424,3 +424,107 @@ temp/
 *.temp
 
 # ============================================================================
+
+# ============================================================================
+# SECURITY: Credential Protection - NEVER COMMIT THESE FILES
+# ============================================================================
+
+# Deployment credentials (any pattern)
+deployment-credentials-*.txt
+*credentials*.txt
+*-credentials-*.txt
+evothesis-credentials-*.txt
+pixel-management-credentials-*.txt
+
+# Environment files with secrets
+.env.production
+.env.local
+.env.staging
+*.env.production
+*.env.local
+.env.*
+
+# Service account and API keys  
+credentials.json
+service-account*.json
+*-service-account.json
+*.pem
+*.p12
+*-key.json
+
+# Deployment artifacts that may contain secrets
+deploy-logs-*.txt
+auth-test-*.txt
+deployment-output-*.txt
+deployment-summary-*.txt
+
+# Backup files that may contain secrets
+*.backup
+*.bak
+*~
+
+# Editor files that may contain secrets
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Temporary files that may contain secrets
+tmp/
+temp/
+*.tmp
+*.temp
+
+# ============================================================================
+
+# ============================================================================
+# SECURITY: Credential Protection - NEVER COMMIT THESE FILES
+# ============================================================================
+
+# Deployment credentials (any pattern)
+deployment-credentials-*.txt
+*credentials*.txt
+*-credentials-*.txt
+evothesis-credentials-*.txt
+pixel-management-credentials-*.txt
+
+# Environment files with secrets
+.env.production
+.env.local
+.env.staging
+*.env.production
+*.env.local
+.env.*
+
+# Service account and API keys  
+credentials.json
+service-account*.json
+*-service-account.json
+*.pem
+*.p12
+*-key.json
+
+# Deployment artifacts that may contain secrets
+deploy-logs-*.txt
+auth-test-*.txt
+deployment-output-*.txt
+deployment-summary-*.txt
+
+# Backup files that may contain secrets
+*.backup
+*.bak
+*~
+
+# Editor files that may contain secrets
+.vscode/settings.json
+.idea/
+*.swp
+*.swo
+
+# Temporary files that may contain secrets
+tmp/
+temp/
+*.tmp
+*.temp
+
+# ============================================================================

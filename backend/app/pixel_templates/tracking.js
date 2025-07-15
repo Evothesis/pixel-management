@@ -1,47 +1,39 @@
+// Evothesis Analytics Pixel - Client-Specific Tracking Library
+// Generated: {TIMESTAMP}
+// Version: 1.0.0
+
 (function() {
-    // Evothesis Analytics Pixel - Dynamically Generated
-    // Configuration injected from server
-    const config = {CONFIG_PLACEHOLDER};
+    'use strict';
     
-    // Privacy compliance check
-    if (config.consent && config.consent.required && !hasUserConsent()) {
-        console.log('[Evothesis] Consent required - tracking blocked');
+    // Inject client configuration
+    var config = {CONFIG_PLACEHOLDER};
+    
+    // Validate configuration
+    if (!config || !config.client_id || !config.collection_endpoint) {
+        console.error('[Evothesis] Invalid tracking configuration');
         return;
     }
     
-    // Respect Do Not Track
-    if (navigator.doNotTrack === '1' || window.doNotTrack === '1') {
-        console.log('[Evothesis] Do Not Track enabled - respecting user preference');
-        return;
-    }
-    
-    // Core tracking configuration
+    // Tracking configuration with defaults
     var trackingConfig = {
-        apiEndpoint: config.collection_endpoint || '/collect',
-        sessionTimeout: 30 * 60 * 1000, // 30 minutes
-        batchTimeout: 60 * 1000, // 1 minute inactivity
-        maxBatchSize: 50,
+        apiEndpoint: config.collection_endpoint,
+        batchTimeout: 5000,        // 5 seconds
+        maxBatchSize: 20,          // 20 events max
+        clientId: config.client_id,
         privacyLevel: config.privacy_level || 'standard'
     };
+    
+    console.log('[Evothesis] Analytics pixel loaded for client:', trackingConfig.clientId);
     
     // Session management
     var sessionManager = {
         getSessionId: function() {
-            var currentTime = Date.now();
-            var sessionId = localStorage.getItem('_evothesis_session_id');
-            var lastActivity = parseInt(localStorage.getItem('_evothesis_last_activity') || '0');
-            
-            // Check session timeout
-            var sessionExpired = (currentTime - lastActivity) > trackingConfig.sessionTimeout;
-            
-            if (!sessionId || sessionExpired) {
+            var sessionId = sessionStorage.getItem('_evothesis_session_id');
+            if (!sessionId) {
                 sessionId = 'sess_' + Math.random().toString(36).substring(2, 15) + 
                            Math.random().toString(36).substring(2, 15);
-                localStorage.setItem('_evothesis_session_id', sessionId);
-                localStorage.setItem('_evothesis_session_start', currentTime.toString());
+                sessionStorage.setItem('_evothesis_session_id', sessionId);
             }
-            
-            localStorage.setItem('_evothesis_last_activity', currentTime.toString());
             return sessionId;
         },
         
@@ -146,113 +138,111 @@
         },
         
         sendToAPI: function(data) {
-            // Use sendBeacon if available (better for page unload)
-            if (navigator.sendBeacon) {
-                navigator.sendBeacon(trackingConfig.apiEndpoint, JSON.stringify(data));
-            } else {
-                // Fallback to fetch
-                fetch(trackingConfig.apiEndpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(data),
-                    keepalive: true
-                }).catch(function(error) {
-                    console.warn('[Evothesis] Failed to send tracking data:', error);
-                });
-            }
+            // Always use fetch with proper Content-Type header
+            fetch(trackingConfig.apiEndpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(data),
+                keepalive: true  // Important for page unload scenarios
+            }).then(function(response) {
+                if (!response.ok) {
+                    console.warn('[Evothesis] Server responded with status:', response.status);
+                }
+            }).catch(function(error) {
+                console.warn('[Evothesis] Failed to send tracking data:', error);
+                // Could implement retry logic here in the future
+            });
         }
     };
     
-    // Tracking functions
-    var tracker = {
-        trackPageView: function() {
-            eventBatcher.addEvent('pageview', {
-                page: {
-                    title: document.title,
-                    url: window.location.href,
-                    path: window.location.pathname
-                },
-                attribution: this.getAttribution()
+    // Auto-track page view
+    eventBatcher.addEvent('pageview', {
+        page: {
+            title: document.title,
+            url: window.location.href,
+            path: window.location.pathname
+        },
+        attribution: {
+            utm_source: new URLSearchParams(window.location.search).get('utm_source'),
+            utm_medium: new URLSearchParams(window.location.search).get('utm_medium'),
+            utm_campaign: new URLSearchParams(window.location.search).get('utm_campaign'),
+            utm_content: new URLSearchParams(window.location.search).get('utm_content'),
+            utm_term: new URLSearchParams(window.location.search).get('utm_term'),
+            referrer: document.referrer || null
+        }
+    });
+    
+    // Track clicks
+    document.addEventListener('click', function(e) {
+        var element = e.target;
+        var elementData = {
+            tag: element.tagName.toLowerCase(),
+            id: element.id || null,
+            class: element.className || null,
+            text: element.textContent ? element.textContent.trim().substring(0, 100) : null
+        };
+        
+        eventBatcher.addEvent('click', {
+            element: elementData,
+            position: {
+                x: e.clientX,
+                y: e.clientY
+            }
+        });
+    });
+    
+    // Track form interactions
+    document.addEventListener('focus', function(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') {
+            eventBatcher.addEvent('form_focus', {
+                field: {
+                    type: e.target.type || e.target.tagName.toLowerCase(),
+                    name: e.target.name || null,
+                    id: e.target.id || null
+                }
             });
+        }
+    }, true);
+    
+    // Track scroll depth
+    var scrollDepth = 0;
+    var scrollTimer;
+    window.addEventListener('scroll', function() {
+        clearTimeout(scrollTimer);
+        scrollTimer = setTimeout(function() {
+            var depth = Math.round((window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100);
+            if (depth > scrollDepth && depth % 25 === 0) { // Track every 25%
+                scrollDepth = depth;
+                eventBatcher.addEvent('scroll', {
+                    depth: depth,
+                    position: window.scrollY
+                });
+            }
+        }, 250);
+    });
+    
+    // Send remaining events before page unload
+    window.addEventListener('beforeunload', function() {
+        if (eventBatcher.batch.length > 0) {
+            eventBatcher.sendBatch();
+        }
+    });
+    
+    // Global tracking API
+    window.evothesis = {
+        track: function(eventType, eventData) {
+            eventBatcher.addEvent(eventType, eventData);
         },
         
-        getAttribution: function() {
-            var params = new URLSearchParams(window.location.search);
+        getStats: function() {
             return {
-                utm_source: params.get('utm_source'),
-                utm_medium: params.get('utm_medium'),
-                utm_campaign: params.get('utm_campaign'),
-                utm_content: params.get('utm_content'),
-                utm_term: params.get('utm_term'),
-                referrer: document.referrer || 'direct'
+                events_queued: eventBatcher.batch.length,
+                client_id: trackingConfig.clientId,
+                privacy_level: trackingConfig.privacyLevel
             };
         }
     };
     
-    // Initialize tracking based on enabled features
-    if (config.features && config.features.page_tracking !== false) {
-        // Track initial page view
-        tracker.trackPageView();
-        
-        // Track click events
-        if (config.features.click_tracking !== false) {
-            document.addEventListener('click', function(event) {
-                eventBatcher.addEvent('click', {
-                    element: event.target.tagName.toLowerCase(),
-                    id: event.target.id || null,
-                    classes: event.target.className || null,
-                    text: (event.target.innerText || '').substring(0, 100)
-                });
-            });
-        }
-        
-        // Track scroll events
-        if (config.features.scroll_tracking === true) {
-            var scrollTimeout;
-            window.addEventListener('scroll', function() {
-                clearTimeout(scrollTimeout);
-                scrollTimeout = setTimeout(function() {
-                    var scrollPercentage = Math.round(
-                        (window.scrollY / (document.body.scrollHeight - window.innerHeight)) * 100
-                    );
-                    eventBatcher.addEvent('scroll', {
-                        scroll_percentage: scrollPercentage
-                    });
-                }, 250);
-            });
-        }
-        
-        // Track form interactions
-        if (config.features.form_tracking === true) {
-            document.addEventListener('focus', function(event) {
-                if (event.target.tagName === 'INPUT' || event.target.tagName === 'TEXTAREA') {
-                    eventBatcher.addEvent('form_focus', {
-                        field: event.target.name || event.target.id || 'unknown',
-                        type: event.target.type || 'text'
-                    });
-                }
-            }, true);
-        }
-    }
-    
-    // Send any remaining events before page unload
-    window.addEventListener('beforeunload', function() {
-        eventBatcher.sendBatch();
-    });
-    
-    // Consent helper function
-    function hasUserConsent() {
-        // Check common consent management platforms
-        if (typeof window.gtag !== 'undefined') {
-            // Google Consent Mode
-            return window.gtag('consent', 'query', 'analytics_storage') === 'granted';
-        }
-        
-        // Check for basic consent cookie
-        return document.cookie.indexOf('evothesis_consent=true') !== -1;
-    }
-    
-    console.log('[Evothesis] Analytics pixel loaded for client:', config.client_id);
 })();
