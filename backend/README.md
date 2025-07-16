@@ -65,6 +65,18 @@ backend/
 - Comprehensive domain metadata management
 - Primary domain designation
 
+**Rate Limiting & Performance:**
+- Sophisticated in-memory rate limiting system
+- Different limits for admin vs config vs pixel endpoints
+- IP-based tracking with automatic cleanup
+- Sub-100ms response times for critical endpoints
+
+**Dynamic Pixel Serving:**
+- Template-based JavaScript tracking pixel generation
+- Client-specific configuration injection
+- Domain authorization validation before serving
+- Privacy compliance built into generated code
+
 **Audit & Compliance:**
 - Complete configuration change audit trail
 - Admin action logging with timestamps and user identification
@@ -104,6 +116,9 @@ DELETE /api/v1/admin/clients/{client_id}/domains/{domain} # Remove domain
 # System management
 GET    /health                            # Health check (no auth)
 GET    /api/v1/admin/configuration-changes # Audit trail
+
+# Pixel serving
+GET    /pixel/{client_id}/tracking.js     # Dynamic tracking pixel
 ```
 
 ## 🗄️ Data Models
