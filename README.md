@@ -43,15 +43,18 @@ pixel-management/
 │   │   ├── main.py    # API endpoints and auth
 │   │   ├── auth.py    # Admin authentication
 │   │   ├── schemas.py # Data validation models
-│   │   └── firestore_client.py # Database integration
+│   │   ├── firestore_client.py # Database integration
+│   │   └── rate_limiter.py # Rate limiting middleware
 │   └── Dockerfile     # Container configuration
 ├── frontend/          # React admin interface  
-│   ├── src/pages/     # Dashboard, client management
+│   ├── src/           # Dashboard, client management
+│   │   ├── components/ # Core UI components
+│   │   ├── pages/     # Page-level components
+│   │   └── services/  # API integration
 │   ├── package.json   # Dependencies and scripts
 │   └── Dockerfile     # Development container
-├── api/               # Event collection service
-│   ├── app/           # FastAPI data collection API
-│   └── requirements.txt # Python dependencies
+├── pixel_templates/   # Dynamic tracking pixel system
+│   └── tracking.js    # JavaScript template for clients
 ├── deploy-pixel-management.sh # Production deployment
 └── Dockerfile         # Multi-stage production build
 ```
@@ -197,8 +200,7 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 ## 📚 Documentation
 
 - [Backend API](backend/README.md) - FastAPI implementation details
-- [Frontend Interface](frontend/README.md) - React admin interface  
-- [Collection API](api/README.md) - Event processing service
+- [Frontend Interface](frontend/README.md) - React admin interface
 
 ---
 

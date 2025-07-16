@@ -35,8 +35,8 @@ Modern React application providing comprehensive analytics configuration managem
 - Real-time system status indicators
 - Performance monitoring widgets
 
-**📚 Integrated User Documentation**
-- Comprehensive setup and usage guides
+**📚 User Documentation**
+- User guide component available (not currently integrated into main navigation)
 - Code examples for tracking implementation
 - Troubleshooting procedures and common solutions
 - Privacy compliance guidance
@@ -51,11 +51,16 @@ frontend/
 │   ├── App.js             # Main application with routing
 │   ├── App.css            # Global styles and design system
 │   ├── index.js           # React DOM mounting point
-│   └── pages/
-│       ├── Dashboard.js   # System overview and quick stats
-│       ├── ClientList.js  # Client table with search/filter
-│       ├── ClientForm.js  # Client creation/editing form
-│       └── UserGuide.js   # Comprehensive documentation
+│   ├── components/        # Core UI components (primary location)
+│   │   ├── Dashboard.js   # System overview and quick stats
+│   │   ├── ClientList.js  # Client table with search/filter
+│   │   ├── ClientForm.js  # Client creation/editing form
+│   │   └── AdminLogin.js  # Authentication interface
+│   ├── pages/             # Alternative component location
+│   ├── contexts/          # React context providers
+│   │   └── AuthContext.js # Authentication state management
+│   └── services/          # API integration layer
+│       └── api.js         # HTTP client with auth headers
 ├── package.json           # Dependencies and build scripts
 ├── Dockerfile             # Development container config
 └── README.md              # This documentation
@@ -64,8 +69,8 @@ frontend/
 ## 🎨 User Interface Design
 
 **Design System:**
-- **Typography**: Inter font family for professional clarity
-- **Color Palette**: Navy primary (#1e3a8a), electric blue accent (#3b82f6)
+- **Typography**: System font stack (system-ui, -apple-system, sans-serif)
+- **Color Palette**: Navy primary (#2d3748), blue accent (#4299e1)
 - **Layout**: Clean, spacious design with clear visual hierarchy
 - **Responsive**: Mobile-friendly interface supporting tablets and phones
 
@@ -109,10 +114,10 @@ const handleSubmit = async (formData) => {
 ```
 
 ### Domain Management Interface
-**Real-time domain authorization:**
+**Domain authorization within client forms:**
 
 ```javascript
-// Add domain with instant validation
+// Add domain functionality integrated into ClientForm
 const addDomain = async () => {
   const response = await fetch(`/api/v1/admin/clients/${clientId}/domains`, {
     method: 'POST',
@@ -129,6 +134,8 @@ const addDomain = async () => {
   }
 };
 ```
+
+**Note:** Standalone domain management interface shows "Coming soon!" - bulk operations not yet implemented.
 
 ## 🔧 Development Workflow
 
@@ -290,11 +297,11 @@ npm run test:coverage
 - **Tablet**: 768px - 1024px (hybrid touch/mouse interface)  
 - **Desktop**: 1024px+ (full mouse-driven interface)
 
-**Mobile-Specific Features:**
-- Touch-optimized form controls and buttons
-- Collapsible navigation for space efficiency
-- Swipe gestures for list management
-- Optimized keyboard handling for mobile input
+**Mobile-Friendly Features:**
+- Responsive CSS Grid layouts
+- Touch-friendly button sizing
+- Adaptable card-based interface
+- Standard mobile browser optimizations
 
 ---
 
