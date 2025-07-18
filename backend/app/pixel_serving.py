@@ -163,6 +163,9 @@ async def serve_pixel(request: Request, client_id: str, collection_endpoint: str
         if not client_id or len(client_id) < 3 or not client_id.replace('_', '').replace('-', '').isalnum():
             raise HTTPException(status_code=400, detail="Invalid client_id format")
         
+        # Initialize requesting domain
+        requesting_domain = None
+
         # Extract requesting domain
         origin = request.headers.get("origin", "")
         if origin:
@@ -172,10 +175,6 @@ async def serve_pixel(request: Request, client_id: str, collection_endpoint: str
             referer = request.headers.get("referer", "")
             if referer:
                 requesting_domain = referer.replace("http://", "").replace("https://", "").split("/")[0].split(":")[0]
-        
-        if not requesting_domain:
-            logger.warning("Unable to determine requesting domain - missing origin and referer headers")
-            raise HTTPException(status_code=400, detail="Unable to determine requesting domain")
         
         # Validate domain authorization and get client config
         client_config = await validate_domain_authorization(requesting_domain, client_id)

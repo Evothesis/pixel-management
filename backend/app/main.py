@@ -263,6 +263,26 @@ async def get_config_by_client_id(client_id: str):
         logger.error(f"Client config lookup failed for {client_id}: {e}")
         raise HTTPException(status_code=500, detail="Configuration service error")
 
+@app.get("/api/v1/domains/all")
+async def list_all_domains():
+    """Get all authorized domains across all clients for CORS configuration"""
+    try:
+        # Get all domains from domain_index
+        domain_docs = list(firestore_client.domain_index_ref.stream())
+        
+        domains = []
+        for doc in domain_docs:
+            domain_data = doc.to_dict()
+            domains.append(domain_data['domain'])
+        
+        logger.info(f"Served {len(domains)} domains for CORS configuration")
+        return {"domains": domains, "count": len(domains)}
+        
+    except Exception as e:
+        logger.error(f"Failed to get all domains: {e}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve domains")
+
+
 # ============================================================================
 # Pixel Serving (Dynamic JavaScript Generation)
 # ============================================================================
