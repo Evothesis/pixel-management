@@ -1,3 +1,25 @@
+/**
+ * React authentication context for API key-based admin access control.
+ * 
+ * This module provides global authentication state management using React Context
+ * and sessionStorage persistence. It implements secure API key authentication with
+ * immediate initialization to prevent race conditions in route protection.
+ * 
+ * Key components:
+ * - AuthenticationManager: Core authentication logic with sessionStorage integration
+ * - AuthProvider: React context provider for global auth state distribution
+ * - useAuth: Custom hook for accessing authentication context in components
+ * 
+ * Authentication flow:
+ * - Immediate initialization from sessionStorage on app load
+ * - API key validation and secure storage management
+ * - Global state updates via observer pattern for real-time UI updates
+ * - Secure logout with session cleanup and navigation handling
+ * 
+ * The context integrates with ProtectedRoute components and form-based login
+ * to provide seamless authentication throughout the admin interface.
+ */
+
 // frontend/src/contexts/AuthContext.js
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 
@@ -121,10 +143,8 @@ export const AuthProvider = ({ children }) => {
             initializationRef.current = true;
             console.log('🔐 Initializing auth manager...');
             
-            // Small delay to ensure DOM is ready
-            setTimeout(() => {
-                authManager.initialize();
-            }, 50);
+            // Initialize immediately - no delay needed
+            authManager.initialize();
         }
         
         return unsubscribe;

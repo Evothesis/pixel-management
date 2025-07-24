@@ -1,3 +1,23 @@
+/**
+ * Client management list component with CRUD operations and domain display.
+ * 
+ * This component provides a comprehensive interface for viewing and managing
+ * tracking clients. It displays clients in a sortable, searchable table with
+ * domain counts, privacy levels, and quick action buttons for common operations.
+ * 
+ * Key features:
+ * - Paginated client list with real-time data fetching
+ * - Client search and filtering capabilities
+ * - Domain count display and management links
+ * - Privacy level indicators (standard, GDPR, HIPAA)
+ * - Quick edit, delete, and domain management actions
+ * - Responsive table design with professional styling
+ * - Error handling and loading states for improved UX
+ * 
+ * The component integrates with the API service for all client operations
+ * and provides navigation to detailed client editing and domain management.
+ */
+
 // frontend/src/components/ClientList.js - Updated for secure authentication
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';

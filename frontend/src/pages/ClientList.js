@@ -1,3 +1,15 @@
+/**
+ * Legacy client list page component (use components/ClientList.js instead).
+ * 
+ * This file appears to be an alternative implementation of the client list
+ * functionality that directly imports axios rather than using the centralized
+ * API service. The active client list implementation is located in the
+ * components directory and integrates properly with the authentication system.
+ * 
+ * This file may be a backup or alternative implementation that should be
+ * evaluated for removal or consolidation with the main client list component.
+ */
+
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 

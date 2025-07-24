@@ -1,3 +1,21 @@
+"""
+Pydantic data models for Firestore document schemas in pixel management system.
+
+This module defines the data structures for storing client, domain, and index
+information in Google Firestore. All models include validation, type safety,
+and automatic serialization for database operations.
+
+Data models:
+- ClientDocument: Complete client configuration with privacy settings
+- DomainDocument: Domain registration and authorization data  
+- DomainIndexDocument: Global domain-to-client mapping for fast lookups
+
+Each model corresponds to a Firestore collection and includes all necessary
+fields for privacy compliance, billing, deployment configuration, and audit
+tracking. The models support multiple privacy levels (standard, GDPR, HIPAA)
+and various deployment types (shared, dedicated).
+"""
+
 # backend/app/models.py - FIXED VERSION FOR IMMEDIATE DEPLOYMENT
 from pydantic import BaseModel, EmailStr
 from typing import Optional, Dict, Any, List

@@ -1,3 +1,21 @@
+"""
+Pydantic schemas for API request/response validation and serialization.
+
+This module defines the input/output data structures for all REST API endpoints
+in the pixel management system. It provides request validation, response
+formatting, and automatic API documentation generation through FastAPI integration.
+
+Schema categories:
+- Client schemas: ClientCreate, ClientUpdate, ClientResponse for client management
+- Domain schemas: DomainCreate, DomainResponse for domain authorization
+- Configuration schemas: ClientConfigResponse for tracking VM configuration
+- System schemas: Health check and status response formats
+
+All schemas include comprehensive validation rules, type safety, and automatic
+OpenAPI documentation generation. They serve as the contract between frontend
+clients and the backend API, ensuring data consistency and proper error handling.
+"""
+
 # backend/app/schemas.py - API request/response schemas
 from pydantic import BaseModel, EmailStr, validator
 from typing import Optional, Dict, Any, List
