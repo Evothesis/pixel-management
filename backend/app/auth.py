@@ -1,3 +1,20 @@
+"""
+Authentication and authorization system for pixel management admin endpoints.
+
+This module provides secure API key-based authentication using Bearer tokens with
+SHA-256 hashing and timing-safe comparison. It includes automatic secure API key
+generation for development environments and comprehensive audit logging for all
+admin operations.
+
+Key components:
+- AdminAuthenticator: Core authentication class with secure key management
+- verify_admin_access: FastAPI dependency for protecting admin endpoints
+- log_admin_action: Audit logging for admin operations with structured output
+
+The system supports both production (explicit ADMIN_API_KEY) and development 
+(auto-generated keys) modes with appropriate security warnings.
+"""
+
 # backend/app/auth.py - COMPLETE REPLACEMENT
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials

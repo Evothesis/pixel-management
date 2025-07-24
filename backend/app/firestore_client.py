@@ -1,3 +1,21 @@
+"""
+Google Firestore database client for pixel management system.
+
+This module provides a singleton Firestore client with automatic authentication
+handling for both local development (service account JSON) and production
+(service account credentials). It manages database collections for clients,
+domains, and domain indexing with connection testing and error handling.
+
+Key components:
+- FirestoreManager: Singleton database client with connection management
+- Collection references: clients_ref, domain_index_ref for data access
+- Authentication: Automatic credential detection and service account setup
+- Connection testing: Health check functionality for database connectivity
+
+The client handles both development (JSON credentials file) and production
+(environment-based authentication) deployment scenarios seamlessly.
+"""
+
 # backend/app/firestore_client.py
 import os
 from google.cloud import firestore

@@ -199,8 +199,19 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 ## 📚 Documentation
 
+### Core Documentation
 - [Backend API](backend/README.md) - FastAPI implementation details
 - [Frontend Interface](frontend/README.md) - React admin interface
+
+### Setup & Configuration
+- [API Key Setup Guide](documentation/API_KEY_SETUP.md) - Production authentication setup
+- [Routing & Authentication](documentation/ROUTING_AND_AUTH.md) - Technical implementation details
+
+### Operations & Support  
+- [Troubleshooting Guide](documentation/TROUBLESHOOTING.md) - Common issues and solutions
+
+### Development
+- [Development Partnership](CLAUDE.md) - Code standards and workflow
 
 ---
 

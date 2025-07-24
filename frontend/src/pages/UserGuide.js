@@ -1,3 +1,23 @@
+/**
+ * User guide and documentation page component.
+ * 
+ * This component provides comprehensive documentation and guidance for using
+ * the pixel management admin interface. It includes setup instructions,
+ * feature explanations, troubleshooting tips, and best practices for managing
+ * tracking clients and domains.
+ * 
+ * Key features:
+ * - Step-by-step setup and configuration guides
+ * - Feature documentation with examples and screenshots
+ * - Privacy compliance guidelines for different privacy levels
+ * - Domain management and authorization instructions
+ * - Troubleshooting section for common issues
+ * - API integration examples and code snippets
+ * 
+ * The user guide serves as comprehensive documentation for admin users
+ * and provides context-sensitive help throughout the interface.
+ */
+
 // frontend/src/pages/UserGuide.js
 import React from 'react';
 

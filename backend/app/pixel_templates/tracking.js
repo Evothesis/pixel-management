@@ -1,6 +1,24 @@
-// Evothesis Analytics Pixel - Client-Specific Tracking Library
-// Generated: {TIMESTAMP}
-// Version: 1.0.0
+/**
+ * Evothesis Analytics Pixel - Client-Specific Tracking Library
+ * 
+ * This JavaScript template generates client-specific tracking pixels with privacy
+ * compliance and domain authorization. The code is dynamically generated per client
+ * with personalized configuration including privacy settings, collection endpoints,
+ * and domain-specific parameters.
+ * 
+ * Template features:
+ * - Client-specific configuration injection via CONFIG_PLACEHOLDER
+ * - Privacy-compliant data collection (GDPR, HIPAA, standard modes)
+ * - Domain authorization and origin validation
+ * - Automatic page view and event tracking capabilities
+ * - Secure data transmission to collection infrastructure
+ * - Cookie and session management based on privacy level
+ * 
+ * The template is processed by pixel_serving.py to generate client-specific
+ * tracking code with appropriate privacy settings and collection endpoints.
+ * Generated: {TIMESTAMP}
+ * Version: 1.0.0
+ */
 
 (function() {
     'use strict';

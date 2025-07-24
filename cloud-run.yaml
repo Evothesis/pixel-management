@@ -25,13 +25,11 @@ spec:
         env:
         - name: DATABASE_URL
           value: "sqlite:///app/pixel_management.db"
-        - name: ADMIN_USERNAME
-          value: "admin"
-        - name: ADMIN_PASSWORD
+        - name: ADMIN_API_KEY
           valueFrom:
             secretKeyRef:
               name: pixel-management-secrets
-              key: admin_password
+              key: admin_api_key
         - name: SECRET_KEY
           valueFrom:
             secretKeyRef:

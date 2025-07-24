@@ -1,3 +1,23 @@
+"""
+Rate limiting middleware for FastAPI application with sliding window algorithm.
+
+This module implements a memory-based rate limiter using sliding window counters
+to prevent abuse and ensure fair resource usage. It tracks requests per IP address
+with configurable limits and time windows, automatically cleaning up expired
+entries to prevent memory leaks.
+
+Key features:
+- Sliding window rate limiting with per-IP tracking
+- Configurable request limits and time windows
+- Automatic memory cleanup of expired request records
+- Health check endpoint exemption to prevent monitoring issues
+- Thread-safe implementation with proper locking
+- Detailed logging for rate limit violations and system monitoring
+
+The rate limiter is applied as FastAPI middleware and integrates seamlessly
+with the application's request/response cycle.
+"""
+
 import time
 import threading
 from collections import defaultdict, deque

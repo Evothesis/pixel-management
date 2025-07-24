@@ -1,3 +1,28 @@
+"""
+FastAPI main application for pixel management system.
+
+This is the core REST API server that provides client management, domain authorization,
+and dynamic JavaScript pixel generation. The application serves both API endpoints for
+admin operations and public endpoints for pixel tracking infrastructure.
+
+Key functionality:
+- Client CRUD operations with privacy compliance (GDPR, HIPAA, standard)
+- Domain authorization and management with global indexing
+- Dynamic JavaScript pixel generation with domain validation
+- Health monitoring and configuration endpoints
+- Static file serving for production React frontend
+- Comprehensive CORS and rate limiting middleware
+
+API structure:
+- /health: Health check endpoint
+- /api/v1/config/*: Public configuration endpoints for tracking VMs
+- /pixel/*: Dynamic JavaScript tracking pixel generation
+- /api/v1/admin/*: Protected admin endpoints requiring API key authentication
+
+The application supports both development (with React dev server) and production
+(serving static files) deployment modes.
+"""
+
 from fastapi import FastAPI, HTTPException, Depends, Request, Path
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Optional, List

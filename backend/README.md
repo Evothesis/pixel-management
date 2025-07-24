@@ -25,16 +25,18 @@ Provides secure client configuration management and real-time domain authorizati
 
 ## 🔐 Authentication System
 
-**Environment-Based Security:**
-- **Production**: HTTP Basic Auth automatically enabled when `ENVIRONMENT=production`
-- **Development**: Authentication disabled for local development
-- **API Keys**: Secure admin API key system for service-to-service communication
+**API Key-Based Security:**
+- **Production**: Bearer token authentication with `ADMIN_API_KEY`
+- **Development**: Auto-generated secure API key if not configured
+- **Frontend**: React form-based login with sessionStorage persistence
+- **API Access**: Authorization header with Bearer token
 
 **Security Features:**
-- Timing-safe password comparison using `secrets.compare_digest()`
-- Automatic secure API key generation if not configured
-- Health check endpoint exemption for Cloud Run monitoring
+- SHA-256 hashing with timing-safe comparison using `secrets.compare_digest()`
+- Automatic secure API key generation (cryptographically secure random)
+- Health check endpoint exemption for Cloud Run monitoring  
 - Comprehensive audit logging for all admin operations
+- HTTPBearer security scheme for FastAPI documentation
 
 ## 📁 Core Components
 

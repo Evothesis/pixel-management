@@ -1,3 +1,24 @@
+/**
+ * Client creation and editing form component with comprehensive validation.
+ * 
+ * This component provides a full-featured form interface for creating new
+ * tracking clients and editing existing ones. It includes validation for all
+ * client fields, privacy level configuration, and deployment type selection
+ * with appropriate field dependencies.
+ * 
+ * Key features:
+ * - Dynamic form handling for both create and edit modes
+ * - Comprehensive field validation with real-time feedback
+ * - Privacy level selection (standard, GDPR, HIPAA) with related settings
+ * - Deployment type configuration (shared, dedicated) with conditional fields
+ * - Client type selection with appropriate validation rules
+ * - Form state management with loading and error handling
+ * - Integration with API service for client operations
+ * 
+ * The component automatically detects edit vs create mode based on URL
+ * parameters and pre-populates form fields for editing scenarios.
+ */
+
 // frontend/src/components/ClientForm.js - Updated for secure authentication
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';

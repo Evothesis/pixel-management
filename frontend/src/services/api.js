@@ -1,3 +1,28 @@
+/**
+ * API service layer for pixel management admin interface.
+ * 
+ * This module provides a centralized HTTP client for all backend communications
+ * using axios. It handles authentication headers, request/response formatting,
+ * error handling, and environment-based URL configuration for both development
+ * and production deployments.
+ * 
+ * Key features:
+ * - Axios-based HTTP client with automatic authentication header injection
+ * - Environment-aware API base URL configuration (development vs production)
+ * - Comprehensive client management operations (CRUD)
+ * - Domain management and authorization operations
+ * - Error handling with detailed error response formatting
+ * - Request interceptors for authentication token management
+ * 
+ * API endpoints:
+ * - Client operations: create, read, update, delete clients
+ * - Domain operations: add, list, remove domains from clients
+ * - Authentication: login validation and token management
+ * 
+ * The service integrates with the authentication context to provide seamless
+ * API access throughout the admin interface.
+ */
+
 // frontend/src/services/api.js - FIXED VERSION
 import axios from 'axios';
 
@@ -65,8 +90,8 @@ apiClient.interceptors.response.use(
             if (url?.includes('/admin/')) {
                 console.error('❌ Clearing invalid API key');
                 sessionStorage.removeItem('admin_api_key');
-                // Force page reload to go back to login
-                window.location.href = '/login';
+                // Trigger a full page reload to reset authentication state
+                window.location.reload();
             }
         } else if (status === 403) {
             console.error('🚫 Access denied - insufficient permissions');

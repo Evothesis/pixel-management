@@ -1,3 +1,23 @@
+/**
+ * Admin dashboard overview component with system statistics and quick actions.
+ * 
+ * This component serves as the main landing page for authenticated admin users,
+ * providing an overview of system statistics, recent activity, and quick access
+ * to common management functions. It displays client counts, domain statistics,
+ * and navigation to detailed management interfaces.
+ * 
+ * Key features:
+ * - Real-time system statistics display (client count, domain count)
+ * - Quick action buttons for common admin tasks
+ * - Recent activity summary and system health indicators
+ * - Responsive grid layout with professional styling
+ * - Integration with API service for live data fetching
+ * - Error handling and loading states for improved UX
+ * 
+ * The dashboard provides a comprehensive overview of the pixel management
+ * system status and serves as the central hub for admin operations.
+ */
+
 // frontend/src/components/Dashboard.js - Updated for secure authentication
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';

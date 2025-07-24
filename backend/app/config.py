@@ -1,3 +1,21 @@
+"""
+Configuration management for pixel management system with secure defaults.
+
+This module handles environment-based configuration with automatic fallbacks for
+development environments. It manages API endpoints, database connections, CORS
+origins, and authentication settings. The configuration system prioritizes
+security with explicit production settings and safe development defaults.
+
+Key features:
+- Environment-based CORS origin management with secure defaults
+- Collection API URL configuration for external tracking infrastructure
+- Development vs production environment detection and warnings
+- Secure configuration validation and logging
+
+The module automatically configures different settings based on deployment
+environment while maintaining security best practices throughout.
+"""
+
 # backend/app/config.py - SECURE CONFIGURATION
 import os
 import secrets

@@ -1,3 +1,22 @@
+/**
+ * Admin login form component for API key authentication.
+ * 
+ * This component provides a secure login interface for pixel management admin access
+ * using API key authentication. It features form validation, error handling, and
+ * integration with the authentication context for seamless login flow.
+ * 
+ * Key features:
+ * - Form-based API key input with validation
+ * - Real-time authentication with backend API validation
+ * - Error state management and user feedback
+ * - Loading states during authentication process
+ * - Integration with AuthContext for global state updates
+ * - Responsive design with clean, professional styling
+ * 
+ * The component handles the complete login flow from user input through API
+ * validation to successful authentication and redirect to admin interface.
+ */
+
 // frontend/src/components/AdminLogin.js
 import React, { useState } from 'react';
 import { apiService } from '../services/api';

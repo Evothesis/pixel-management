@@ -1,3 +1,15 @@
+/**
+ * Legacy dashboard page component (use components/Dashboard.js instead).
+ * 
+ * This file appears to be an alternative implementation of the dashboard
+ * functionality that directly imports axios rather than using the centralized
+ * API service. The active dashboard implementation is located in the
+ * components directory and integrates properly with the authentication system.
+ * 
+ * This file may be a backup or alternative implementation that should be
+ * evaluated for removal or consolidation with the main dashboard component.
+ */
+
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 

@@ -1,3 +1,23 @@
+"""
+Dynamic JavaScript tracking pixel generation with domain authorization.
+
+This module generates client-specific JavaScript tracking pixels with domain-based
+security validation. It serves personalized tracking code that includes client
+configuration, privacy settings, and collection endpoints. The system validates
+requesting domains against authorized domain lists before serving pixels.
+
+Key functionality:
+- Template-based JavaScript generation with client-specific configuration
+- Domain authorization validation using Firestore domain index
+- Client privacy level integration (standard, GDPR, HIPAA compliance)
+- Collection API endpoint configuration for tracking infrastructure
+- Caching headers and performance optimization
+- Comprehensive error handling and security logging
+
+The generated JavaScript includes client ID, privacy settings, collection
+endpoints, and domain-specific configuration for tracking pixels.
+"""
+
 from fastapi import Request, HTTPException, Response
 from pathlib import Path
 import json

@@ -1,3 +1,15 @@
+/**
+ * Legacy client form page component (use components/ClientForm.js instead).
+ * 
+ * This file appears to be an alternative implementation of the client form
+ * functionality that directly imports axios rather than using the centralized
+ * API service. The active client form implementation is located in the
+ * components directory and integrates properly with the authentication system.
+ * 
+ * This file may be a backup or alternative implementation that should be
+ * evaluated for removal or consolidation with the main client form component.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';

@@ -1,3 +1,23 @@
+/**
+ * Main React application component with routing and authentication.
+ * 
+ * This is the root component that sets up the complete application structure including
+ * React Router for client-side navigation, authentication context for secure access,
+ * and protected route handling. The app provides a single-page interface for pixel
+ * management with proper SPA routing and authentication state management.
+ * 
+ * Key features:
+ * - React Router with BrowserRouter for client-side routing
+ * - AuthProvider context for global authentication state
+ * - ProtectedRoute component for securing admin interfaces
+ * - Route-based authentication redirects and access control
+ * - Loading states and error handling for authentication flows
+ * - Admin header with logout functionality and user context
+ * 
+ * The application handles both authenticated (admin dashboard, client management)
+ * and unauthenticated (login) user flows with appropriate redirects and protection.
+ */
+
 // frontend/src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, Link } from 'react-router-dom';
