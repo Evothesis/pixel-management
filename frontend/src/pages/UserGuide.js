@@ -30,7 +30,7 @@ function UserGuide() {
     <div style={{ maxWidth: '900px', margin: '0 auto', padding: '20px', textAlign: 'left' }}>
       <h1>Pixel Management User Guide</h1>
       <p style={{ fontSize: '1.1em', color: '#666', marginBottom: '30px' }}>
-        Complete guide to setting up clients and managing tracking configurations for the Evothesis analytics platform.
+        Complete guide to setting up clients and managing tracking configurations for the SecurePixel analytics platform.
       </p>
 
       {/* Table of Contents */}
@@ -51,7 +51,7 @@ function UserGuide() {
       <section id="overview" style={{ marginBottom: '40px' }}>
         <h2>1. Overview</h2>
         <p>
-          The Pixel Management system is the central configuration hub for all Evothesis tracking infrastructure. 
+          The Pixel Management system is the central configuration hub for all SecurePixel tracking infrastructure. 
           <strong> Every domain must be explicitly authorized before tracking can begin.</strong> This ensures:
         </p>
         <ul>
@@ -310,7 +310,7 @@ function UserGuide() {
         <div style={{ background: '#f7fafc', padding: '20px', borderRadius: '8px', marginBottom: '20px' }}>
           <h4>Pixel Endpoint Format</h4>
           <pre style={{ background: '#2d3748', color: '#e2e8f0', padding: '15px', borderRadius: '4px', overflow: 'auto' }}>
-{`https://shared.evothesis.com/pixel/{client_id}/tracking.js`}
+{`https://shared.securepixel.com/pixel/{client_id}/tracking.js`}
           </pre>
           <p style={{ marginTop: '10px' }}>Replace <code>{'{client_id}'}</code> with the actual client ID from step 2.</p>
         </div>

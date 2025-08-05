@@ -1,4 +1,4 @@
-# Evothesis Pixel Management
+# SecurePixel Management
 
 ```
 ┌─────────────────────┐    ┌─────────────────────┐    ┌─────────────────────┐

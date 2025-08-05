@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>SecurePixel Generic E-commerce Integration Examples</title>
+</head>
+<body>
+
+<!-- 
+SecurePixel Generic E-commerce Integration Guide
+===============================================
+Use these examples for custom e-commerce sites or platforms not covered by specific integrations.
+Replace {CLIENT_ID} with your actual SecurePixel client ID.
+-->
+
+<!-- 1. Load SecurePixel -->
+<script src="https://pixel-management-275731808857.us-central1.run.app/pixel/{CLIENT_ID}/tracking.js" async></script>
+
+<!-- 2. Manual Tracking Examples -->
+<script>
+// Wait for SecurePixel to load
+document.addEventListener('DOMContentLoaded', function() {
+    // Check if SecurePixel is loaded
+    if (typeof window.securepixel === 'undefined') {
+        console.warn('SecurePixel not loaded yet, waiting...');
+        setTimeout(function() {
+            if (typeof window.securepixel !== 'undefined') {
+                initializeTracking();
+            }
+        }, 1000);
+    } else {
+        initializeTracking();
+    }
+});
+
+function initializeTracking() {
+    console.log('SecurePixel tracking initialized');
+    
+    // Example: Track product view on product pages
+    if (window.location.pathname.includes('/product/')) {
+        trackProductView();
+    }
+    
+    // Example: Track add to cart buttons
+    setupAddToCartTracking();
+    
+    // Example: Track checkout process
+    setupCheckoutTracking();
+    
+    // Example: Track lead forms
+    setupLeadFormTracking();
+}
+
+// Product View Tracking
+function trackProductView() {
+    // Get product data from page (customize based on your site structure)
+    var productSku = document.querySelector('[data-product-sku]')?.dataset.productSku;
+    var productName = document.querySelector('h1.product-title')?.textContent;
+    var productPrice = parseFloat(document.querySelector('.price')?.textContent.replace(/[^0-9.]/g, ''));
+    var productCategory = document.querySelector('.breadcrumb .category')?.textContent;
+    
+    if (productSku) {
+        securepixel.trackProduct({
+            sku: productSku,
+            name: productName,
+            price: productPrice,
+            category: productCategory,
+            currency: 'USD' // Customize based on your site
+        });
+    }
+}
+
+// Add to Cart Tracking
+function setupAddToCartTracking() {
+    document.querySelectorAll('.add-to-cart-btn, [data-action="add-to-cart"]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            // Get product data from button or nearby elements
+            var sku = this.dataset.sku || this.closest('.product').querySelector('[data-sku]')?.dataset.sku;
+            var name = this.dataset.name || this.closest('.product').querySelector('.product-name')?.textContent;
+            var price = parseFloat(this.dataset.price || this.closest('.product').querySelector('.price')?.textContent.replace(/[^0-9.]/g, ''));
+            var quantity = parseInt(this.closest('form')?.querySelector('input[name="quantity"]')?.value || 1);
+            
+            if (sku) {
+                securepixel.trackAddToCart({
+                    sku: sku,
+                    name: name,
+                    price: price,
+                    quantity: quantity,
+                    currency: 'USD'
+                });
+            }
+        });
+    });
+}
+
+// Checkout Tracking
+function setupCheckoutTracking() {
+    // Track begin checkout
+    document.querySelectorAll('.checkout-btn, [href*="checkout"]').forEach(function(button) {
+        button.addEventListener('click', function() {
+            var cartValue = parseFloat(document.querySelector('.cart-total')?.textContent.replace(/[^0-9.]/g, '')) || 0;
+            var itemCount = parseInt(document.querySelector('.cart-count')?.textContent) || 0;
+            
+            securepixel.trackBeginCheckout({
+                cart_value: cartValue,
+                currency: 'USD',
+                item_count: itemCount
+            });
+        });
+    });
+}
+
+// Lead Form Tracking
+function setupLeadFormTracking() {
+    document.querySelectorAll('form').forEach(function(form) {
+        // Auto-detect lead forms
+        var isLeadForm = form.id.includes('contact') || 
+                        form.id.includes('lead') || 
+                        form.classList.contains('lead-form') ||
+                        form.querySelector('input[name*="email"]');
+        
+        if (isLeadForm) {
+            form.addEventListener('submit', function() {
+                securepixel.trackLead({
+                    form_id: form.id || 'unnamed_form',
+                    lead_type: 'contact',
+                    source: 'website'
+                });
+            });
+        }
+    });
+}
+</script>
+
+<!-- 3. DataLayer Integration Examples -->
+<script>
+// Using dataLayer for e-commerce tracking (Google Analytics 4 compatible)
+window.dataLayer = window.dataLayer || [];
+
+// Example: Purchase tracking (add to order confirmation page)
+function trackPurchase(orderData) {
+    dataLayer.push({
+        'event': 'purchase',
+        'ecommerce': {
+            'transaction_id': orderData.orderId,
+            'value': orderData.total,
+            'currency': orderData.currency,
+            'items': orderData.items.map(function(item) {
+                return {
+                    'item_id': item.sku,
+                    'item_name': item.name,
+                    'price': item.price,
+                    'quantity': item.quantity
+                };
+            })
+        }
+    });
+}
+
+// Example usage - Replace placeholders with your actual values:
+// trackPurchase({
+//     orderId: '{YOUR_ORDER_ID}',           // e.g., 'ORD-12345'
+//     total: {YOUR_ORDER_TOTAL},            // e.g., 99.99
+//     currency: '{YOUR_CURRENCY}',          // e.g., 'USD'
+//     items: [
+//         { sku: '{PRODUCT_SKU}', name: '{PRODUCT_NAME}', price: {PRICE}, quantity: {QTY} }
+//     ]
+// });
+</script>
+
+<!-- 4. Lead Form Enhancement -->
+<!-- Add these data attributes to your lead forms for automatic tracking -->
+<form id="{YOUR_FORM_ID}" data-securepixel-lead="true" data-lead-type="{LEAD_TYPE}" data-lead-value="{LEAD_VALUE}">
+    <input type="text" name="name" placeholder="Name" required>
+    <input type="email" name="email" placeholder="Email" required>
+    <textarea name="message" placeholder="Message"></textarea>
+    <button type="submit">Send Message</button>
+</form>
+
+<!-- Replace these placeholders:
+     {YOUR_FORM_ID} = your form ID, e.g., 'contact-form'
+     {LEAD_TYPE} = lead type, e.g., 'contact', 'demo', 'quote'
+     {LEAD_VALUE} = estimated value, e.g., '100', '500' -->
+
+<!-- 5. Product Page Enhancement -->
+<!-- Add these data attributes to product elements for automatic tracking -->
+<div class="product" data-product-sku="{PRODUCT_SKU}">
+    <h1 class="product-title">{PRODUCT_NAME}</h1>
+    <div class="price">${PRODUCT_PRICE}</div>
+    <button class="add-to-cart-btn" 
+            data-sku="{PRODUCT_SKU}" 
+            data-name="{PRODUCT_NAME}" 
+            data-price="{PRODUCT_PRICE}">
+        Add to Cart
+    </button>
+</div>
+
+<!-- Replace these placeholders:
+     {PRODUCT_SKU} = your product SKU, e.g., 'WIDGET-123'
+     {PRODUCT_NAME} = product name, e.g., 'Amazing Widget'
+     {PRODUCT_PRICE} = price without currency symbol, e.g., '29.99' -->
+
+<!-- 6. Conversion Goals -->
+<script>
+// Track custom conversion goals
+function trackConversion(type, value) {
+    securepixel.trackConversion({
+        conversion_type: type,
+        value: value || 0,
+        currency: 'USD'
+    });
+}
+
+// Example usage - Replace with your actual values:
+// trackConversion('{CONVERSION_TYPE}', {VALUE});     // e.g., trackConversion('newsletter_signup', 10)
+// trackConversion('{CONVERSION_TYPE}', {VALUE});     // e.g., trackConversion('demo_request', 500)
+// trackConversion('{CONVERSION_TYPE}', {VALUE});     // e.g., trackConversion('trial_signup', 1000)
+</script>
+
+</body>
+</html>

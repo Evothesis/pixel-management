@@ -1,0 +1,94 @@
+<!-- SecurePixel Shopify Integration Template -->
+<!-- Add this to your Shopify theme's checkout.liquid or order-status.liquid -->
+
+{% comment %}
+SecurePixel E-commerce Tracking for Shopify
+============================================
+This template automatically tracks purchases and product views using dataLayer integration.
+Replace {CLIENT_ID} with your actual SecurePixel client ID.
+{% endcomment %}
+
+<!-- Load SecurePixel -->
+<script src="https://pixel-management-275731808857.us-central1.run.app/pixel/{CLIENT_ID}/tracking.js" async></script>
+
+{% if first_time_accessed and order %}
+<!-- Purchase Tracking (Checkout Success) -->
+<script>
+window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+    'event': 'purchase',
+    'ecommerce': {
+        'transaction_id': '{{ order.order_number }}',
+        'value': {{ order.total_price | divided_by: 100.0 }},
+        'currency': '{{ shop.currency }}',
+        'shipping': {{ order.shipping_price | divided_by: 100.0 }},
+        'tax': {{ order.tax_price | divided_by: 100.0 }},
+        'coupon': {% if order.discount_applications.size > 0 %}'{{ order.discount_applications[0].title }}'{% else %}null{% endif %},
+        'items': [
+            {% for line_item in order.line_items %}
+            {
+                'item_id': '{{ line_item.sku | default: line_item.variant_id }}',
+                'item_name': '{{ line_item.title | escape }}',
+                'price': {{ line_item.price | divided_by: 100.0 }},
+                'quantity': {{ line_item.quantity }},
+                'item_category': '{{ line_item.product.type | escape }}',
+                'item_brand': '{{ line_item.vendor | escape }}'
+            }{% unless forloop.last %},{% endunless %}
+            {% endfor %}
+        ]
+    }
+});
+</script>
+{% endif %}
+
+{% if template contains 'product' %}
+<!-- Product View Tracking -->
+<script>
+window.dataLayer = window.dataLayer || [];
+window.dataLayer.push({
+    'event': 'view_item',
+    'ecommerce': {
+        'currency': '{{ shop.currency }}',
+        'value': {{ product.price | divided_by: 100.0 }},
+        'items': [{
+            'item_id': '{{ product.selected_or_first_available_variant.sku | default: product.selected_or_first_available_variant.id }}',
+            'item_name': '{{ product.title | escape }}',
+            'price': {{ product.price | divided_by: 100.0 }},
+            'item_category': '{{ product.type | escape }}',
+            'item_brand': '{{ product.vendor | escape }}'
+        }]
+    }
+});
+</script>
+{% endif %}
+
+<!-- Add to Cart Tracking (Add to theme.liquid or cart templates) -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Listen for Shopify cart updates
+    document.addEventListener('cart:requestComplete', function(event) {
+        if (event.detail && event.detail.cart) {
+            // Track add to cart event
+            var items = event.detail.cart.items;
+            if (items && items.length > 0) {
+                var lastItem = items[items.length - 1]; // Assume last item was just added
+                
+                window.dataLayer = window.dataLayer || [];
+                window.dataLayer.push({
+                    'event': 'add_to_cart',
+                    'ecommerce': {
+                        'currency': '{{ shop.currency }}',
+                        'value': lastItem.price / 100,
+                        'items': [{
+                            'item_id': lastItem.sku || lastItem.variant_id,
+                            'item_name': lastItem.product_title,
+                            'price': lastItem.price / 100,
+                            'quantity': lastItem.quantity
+                        }]
+                    }
+                });
+            }
+        }
+    });
+});
+</script>

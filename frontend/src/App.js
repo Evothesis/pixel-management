@@ -107,7 +107,7 @@ const AdminHeader = () => {
                     }}
                 >
                     <h1 style={{ margin: 0, fontSize: '18px' }}>
-                        🏢 Evothesis Pixel Management
+                        🏢 SecurePixel Management
                     </h1>
                 </Link>
             </div>

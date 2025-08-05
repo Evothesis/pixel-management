@@ -1,0 +1,19 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "domain_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "client_id",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "created_at",
+          "order": "DESCENDING"
+        }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

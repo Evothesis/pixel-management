@@ -48,7 +48,7 @@ from fastapi.responses import FileResponse
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Evothesis Pixel Management", version="1.0.0")
+app = FastAPI(title="SecurePixel Management", version="1.0.0")
 
 # ============================================================================
 # Environment Configuration
@@ -114,8 +114,8 @@ async def initialize_firestore():
             if not admin_doc.exists:
                 admin_client_data = {
                     "client_id": admin_client_id,
-                    "name": "Evothesis Admin",
-                    "email": "admin@evothesis.com",
+                    "name": "SecurePixel Admin",
+                    "email": "admin@securepixel.com",
                     "client_type": "admin",
                     "owner": admin_client_id,  # Self-owned
                     "billing_entity": admin_client_id,
