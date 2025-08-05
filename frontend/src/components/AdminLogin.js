@@ -87,7 +87,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
                         fontSize: '24px',
                         fontWeight: '600'
                     }}>
-                        🔐 Evothesis Admin
+                        🔐 SecurePixel Admin
                     </h1>
                     <p style={{ 
                         color: '#718096', 
@@ -176,7 +176,7 @@ const AdminLogin = ({ onLoginSuccess }) => {
                     <strong>🔑 Need your API key?</strong><br/>
                     Check your secure deployment credentials file:<br/>
                     <code style={{ backgroundColor: '#edf2f7', padding: '2px 4px', borderRadius: '2px' }}>
-                        ~/.evothesis-credentials/pixel-management-credentials-*.txt
+                        ~/.securepixel-credentials/pixel-management-credentials-*.txt
                     </code>
                 </div>
                 

@@ -4,7 +4,7 @@
 
 ## 🏗️ Architecture
 
-Provides secure client configuration management and real-time domain authorization for the Evothesis tracking infrastructure.
+Provides secure client configuration management and real-time domain authorization for the SecurePixel tracking infrastructure.
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐

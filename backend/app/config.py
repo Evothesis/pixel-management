@@ -36,7 +36,7 @@ class Settings:
     
     # API Configuration
     API_V1_PREFIX: str = "/api/v1"
-    PROJECT_NAME: str = "Evothesis Pixel Management"
+    PROJECT_NAME: str = "SecurePixel Management"
     VERSION: str = "1.0.0"
     
     # CORS Configuration - TODO: Restrict in production
@@ -124,7 +124,7 @@ settings = Settings()
 # Environment setup helper
 def setup_environment_file():
     """Helper to generate .env file with secure defaults"""
-    env_content = f"""# Evothesis Pixel Management Environment Configuration
+    env_content = f"""# SecurePixel Management Environment Configuration
 # Generated on: {datetime.utcnow().isoformat()}
 
 # CRITICAL: Admin API Key for accessing admin endpoints

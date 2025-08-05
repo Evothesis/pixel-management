@@ -18,7 +18,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🔐 Secure Evothesis Pixel Management Deployment${NC}"
+echo -e "${BLUE}🔐 Secure SecurePixel Management Deployment${NC}"
 echo -e "${BLUE}================================================${NC}"
 
 # Configuration
@@ -157,6 +157,59 @@ BACKEND_ENV_VARS="ADMIN_API_KEY=${ADMIN_API_KEY},SECRET_KEY=${SECRET_KEY},ENVIRO
 
 echo -e "${GREEN}✅ Backend environment prepared${NC}"
 echo ""
+
+# Deploy Firestore indexes (REQUIRED)
+echo -e "${YELLOW}📊 Deploying Firestore indexes...${NC}"
+
+if [ ! -f "backend/firestore.indexes.json" ]; then
+    echo -e "${RED}❌ backend/firestore.indexes.json not found. This is required.${NC}"
+    exit 1
+fi
+
+# Check if composite index for domain_index collection already exists
+echo "   Checking for existing composite index on domain_index collection..."
+
+# Check if the specific index already exists by parsing JSON output
+INDEX_EXISTS=$(gcloud firestore indexes composite list \
+    --format="value(name)" \
+    --project=$PROJECT_ID 2>/dev/null | \
+    while read index_id; do
+        if [ -n "$index_id" ]; then
+            # Get JSON details and extract collection group from the full name path
+            JSON_OUTPUT=$(gcloud firestore indexes composite describe "$index_id" \
+                --format="json" \
+                --project=$PROJECT_ID 2>/dev/null)
+            
+            # Extract the full name path and state from JSON
+            FULL_NAME=$(echo "$JSON_OUTPUT" | grep '"name":' | sed 's/.*"name": *"\([^"]*\)".*/\1/')
+            STATE=$(echo "$JSON_OUTPUT" | grep '"state":' | sed 's/.*"state": *"\([^"]*\)".*/\1/')
+            
+            # Check if this is for domain_index collection and is READY
+            if echo "$FULL_NAME" | grep -q "/collectionGroups/domain_index/" && [ "$STATE" = "READY" ]; then
+                echo "$index_id"
+                break
+            fi
+        fi
+    done)
+
+if [ -n "$INDEX_EXISTS" ]; then
+    echo -e "${GREEN}   ✅ Composite index already exists (ID: $(basename $INDEX_EXISTS))${NC}"
+    echo "   Skipping index creation..."
+else
+    echo "   Creating composite index for domain_index collection..."
+    if ! gcloud firestore indexes composite create \
+        --collection-group=domain_index \
+        --field-config=field-path=client_id,order=ascending \
+        --field-config=field-path=created_at,order=descending \
+        --project=$PROJECT_ID \
+        --quiet; then
+        echo -e "${RED}❌ Failed to deploy Firestore indexes${NC}"
+        exit 1
+    fi
+    echo -e "${GREEN}   ✅ New composite index created successfully${NC}"
+fi
+
+echo -e "${GREEN}✅ Firestore indexes deployed successfully${NC}"
 
 # Build and deploy
 echo -e "${YELLOW}🔨 Building and deploying to Cloud Run...${NC}"
@@ -321,7 +374,7 @@ CREDS_FILE="$CREDS_DIR/pixel-management-credentials-$TIMESTAMP.txt"
 
 cat > "$CREDS_FILE" << EOF
 # ============================================================================
-# Evothesis Pixel Management - SECURE Deployment Credentials
+# SecurePixel Management - SECURE Deployment Credentials
 # ============================================================================
 # Generated: $(date -u '+%Y-%m-%d %H:%M:%S UTC')
 # Deployment: $SERVICE_NAME
