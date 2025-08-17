@@ -1,0 +1,123 @@
+# Unified Docker Compose for Pixel Management System
+# Use with environment files: docker compose --env-file .env.{environment} up
+# 
+# Examples:
+#   docker compose --env-file .env.development up --build
+#   docker compose --env-file .env.staging up -d
+#   docker compose --env-file .env.production up -d
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/scripts/init_geolocation_db.sql:/docker-entrypoint-initdb.d/01_init.sql:ro
+    ports:
+      - "${POSTGRES_PORT}:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - database
+      - all
+
+  # PostgreSQL data population using optimized PostgreSQL COPY FROM
+  # Uses local cached CSV data for maximum performance
+  # Performance: ~30 seconds data load + ~3 minutes index creation
+  postgres-init:
+    build: 
+      context: ./backend
+      target: production
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - ./backend/scripts:/app/scripts
+      - ./data/geolocation:/app/data/geolocation:ro
+    command: python scripts/populate_geolocation_db.py --database-url postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB} --csv-path /app/data/geolocation/dbip-city-lite.csv
+    restart: "no"
+    profiles:
+      - init
+      - all
+
+  backend:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+      target: production
+    ports:
+      - "${BACKEND_PORT:-8000}:8000"
+    environment:
+      - ENVIRONMENT=${ENVIRONMENT:-development}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - PORT=${PORT:-8000}
+      - GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT}
+      - GOOGLE_APPLICATION_CREDENTIALS=${GOOGLE_APPLICATION_CREDENTIALS:-/app/credentials/credentials.json}
+      - ADMIN_API_KEY=${ADMIN_API_KEY}
+      - COLLECTION_API_URL=${COLLECTION_API_URL}
+      - CORS_ORIGINS=${CORS_ORIGINS}
+      - ENABLE_AUDIT_LOG=${ENABLE_AUDIT_LOG:-true}
+      - ENABLE_SECURITY_HEADERS=${ENABLE_SECURITY_HEADERS:-true}
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+    volumes:
+      - ./credentials.json:/app/credentials/credentials.json:ro
+      # Development hot-reload (only used in dev)
+      - ${BACKEND_VOLUME_MOUNT:-/dev/null}:/app/app
+    command: ${BACKEND_COMMAND:-uvicorn app.main:app --host 0.0.0.0 --port 8000}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    profiles:
+      - backend
+      - all
+
+  frontend:
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "${FRONTEND_PORT:-3000}:3000"
+    environment:
+      - REACT_APP_API_URL=${REACT_APP_API_URL:-http://localhost:8000}
+      - REACT_APP_ENVIRONMENT=${ENVIRONMENT:-development}
+    volumes:
+      # Development hot-reload (only used in dev)
+      - ${FRONTEND_SRC_MOUNT:-/dev/null}:/app/src
+      - ${FRONTEND_PUBLIC_MOUNT:-/dev/null}:/app/public
+    command: ${FRONTEND_COMMAND:-npm start}
+    depends_on:
+      - backend
+    restart: unless-stopped
+    profiles:
+      - frontend
+      - all
+
+  nginx:
+    image: nginx:alpine
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ${NGINX_SSL_CERTS:-/dev/null}:/etc/nginx/ssl:ro
+    depends_on:
+      - frontend
+      - backend
+    restart: unless-stopped
+    profiles:
+      - nginx
+      - production
+      - all
+
+volumes:
+  postgres_data:
