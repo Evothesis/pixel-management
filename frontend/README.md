@@ -51,12 +51,11 @@ frontend/
 │   ├── App.js             # Main application with routing
 │   ├── App.css            # Global styles and design system
 │   ├── index.js           # React DOM mounting point
-│   ├── components/        # Core UI components (primary location)
+│   ├── components/        # Core UI components
 │   │   ├── Dashboard.js   # System overview and quick stats
 │   │   ├── ClientList.js  # Client table with search/filter
 │   │   ├── ClientForm.js  # Client creation/editing form
 │   │   └── AdminLogin.js  # Authentication interface
-│   ├── pages/             # Alternative component location
 │   ├── contexts/          # React context providers
 │   │   └── AuthContext.js # Authentication state management
 │   └── services/          # API integration layer
@@ -82,14 +81,14 @@ frontend/
 
 ## 🚀 Key Components
 
-### Dashboard (`pages/Dashboard.js`)
+### Dashboard (`components/Dashboard.js`)
 **System overview with real-time metrics:**
 - Client count by privacy level (Standard/GDPR/HIPAA)
 - Active domain count and authorization status
 - Recent configuration changes and admin activity
 - System health indicators and performance metrics
 
-### Client Management (`pages/ClientList.js` & `pages/ClientForm.js`)
+### Client Management (`components/ClientList.js` & `components/ClientForm.js`)
 **Complete client lifecycle management:**
 
 ```javascript

@@ -27,6 +27,8 @@ import threading
 import time
 
 from .firestore_client import firestore_client
+from .services.geolocation import geolocation_service, PrivacyLevel
+from .utils.ip_extraction import extract_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -80,11 +82,15 @@ def generate_pixel_javascript(client_config: Dict[str, Any], collection_endpoint
         # Get base template
         template_code = template_cache.get_template()
         
-        # Enhance config with collection endpoint
+        # Enhance config with collection endpoint and location data
         enhanced_config = client_config.copy()
         enhanced_config['collection_endpoint'] = collection_endpoint
         enhanced_config['pixel_version'] = '1.0.0'
         enhanced_config['generated_at'] = time.time()
+        
+        # Add location data if provided
+        if 'location' in client_config:
+            enhanced_config['location'] = client_config['location']
         
         # Inject configuration
         config_json = json.dumps(enhanced_config, indent=2, ensure_ascii=False)
@@ -199,8 +205,61 @@ async def serve_pixel(request: Request, client_id: str, collection_endpoint: str
         # Validate domain authorization and get client config
         client_config = await validate_domain_authorization(requesting_domain, client_id)
         
+        # Extract client IP address for geolocation
+        client_ip = extract_client_ip(request)
+        logger.info(f"Extracted client IP for {client_id}: {client_ip}")
+        
+        # Get location data based on privacy level and client features
+        location_data = None
+        privacy_level_str = client_config.get('privacy_level', 'standard')
+        
+        # Check if geolocation is enabled for this client
+        features = client_config.get('features', {})
+        geolocation_enabled = features.get('geolocation_enabled', True)  # Default enabled
+        
+        if geolocation_enabled and client_ip:
+            try:
+                # Map privacy level string to enum
+                privacy_mapping = {
+                    'standard': PrivacyLevel.STANDARD,
+                    'gdpr': PrivacyLevel.GDPR, 
+                    'hipaa': PrivacyLevel.HIPAA
+                }
+                privacy_level = privacy_mapping.get(privacy_level_str, PrivacyLevel.STANDARD)
+                
+                # Get location data with privacy compliance
+                location = await geolocation_service.get_location(client_ip, privacy_level)
+                location_data = location.to_dict()
+                
+                logger.info(f"Geolocation for {client_id}: {location_data['country']}/{location_data['region']}")
+                
+            except Exception as e:
+                logger.error(f"Geolocation lookup failed for {client_id}: {e}")
+                # Continue with fallback - don't break pixel serving
+                location_data = {
+                    "country": "unknown",
+                    "region": "unknown", 
+                    "postal_prefix": "unknown"
+                }
+        else:
+            # Geolocation disabled or no IP - use fallback
+            location_data = {
+                "country": "unknown",
+                "region": "unknown",
+                "postal_prefix": "unknown"
+            }
+            
+            if not geolocation_enabled:
+                logger.info(f"Geolocation disabled for client {client_id}")
+            elif not client_ip:
+                logger.warning(f"No client IP extracted for geolocation on client {client_id}")
+        
+        # Enhance client config with location data
+        enhanced_client_config = client_config.copy()
+        enhanced_client_config['location'] = location_data
+        
         # Generate pixel JavaScript
-        pixel_js = generate_pixel_javascript(client_config, collection_endpoint)
+        pixel_js = generate_pixel_javascript(enhanced_client_config, collection_endpoint)
         
         # Return with appropriate caching headers
         return Response(

@@ -30,7 +30,7 @@ import axios from 'axios';
 const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 
                     (process.env.NODE_ENV === 'production' 
                         ? window.location.origin 
-                        : 'http://localhost:8000');
+                        : `${window.location.protocol}//${window.location.host}`);
 
 console.log('🌐 API Base URL:', API_BASE_URL);
 

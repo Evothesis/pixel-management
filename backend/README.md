@@ -46,8 +46,7 @@ backend/
 │   ├── main.py              # FastAPI app with auth middleware
 │   ├── auth.py              # Admin API key authentication  
 │   ├── firestore_client.py  # Database connection & utilities
-│   ├── schemas.py           # Pydantic validation models
-│   └── models.py            # Data structure definitions
+│   └── schemas.py           # Pydantic validation models
 ├── requirements.txt         # Python dependencies
 ├── Dockerfile              # Container configuration
 └── README.md               # This documentation
@@ -78,6 +77,13 @@ backend/
 - Client-specific configuration injection
 - Domain authorization validation before serving
 - Privacy compliance built into generated code
+
+**IP Geolocation Database:**
+- PostgreSQL-based geolocation lookup with 7.9M+ IP ranges
+- Two-stage initialization: schema creation, then optimized index creation
+- Sub-millisecond IP lookup performance via GIST indexing
+- EU detection for GDPR compliance requirements
+- Uses PostgreSQL COPY for maximum data loading performance
 
 **Audit & Compliance:**
 - Complete configuration change audit trail
@@ -167,8 +173,14 @@ pip install -r requirements.txt
 # 3. Set environment variables
 export GOOGLE_CLOUD_PROJECT=your-project-id
 export ENVIRONMENT=development  # Disables auth
+export DATABASE_URL=postgresql://pixeluser:pixelpass@localhost:5432/pixeldb
 
-# 4. Run development server
+# 4. Setup geolocation database (if using local PostgreSQL)
+# Download data: ../scripts/download-geolocation-data.sh
+# Initialize schema: psql -f scripts/init_geolocation_db.sql
+# Populate data: python scripts/populate_geolocation_db.py --csv-path ../data/geolocation/dbip-city-lite.csv
+
+# 5. Run development server
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -233,9 +245,11 @@ curl -H "Authorization: Bearer YOUR_API_KEY" \
 
 **Response Time SLAs:**
 - Domain authorization: <100ms (critical for tracking performance)
+- IP geolocation lookup: <1ms (sub-millisecond with GIST indexing)
 - Admin operations: <500ms
 - Health checks: <50ms
 - Bulk operations: <2000ms
+- Database initialization: <4 minutes (one-time setup)
 
 **Scaling Characteristics:**
 - Memory usage: ~200MB baseline, ~512MB under load

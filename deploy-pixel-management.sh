@@ -27,11 +27,26 @@ SERVICE_NAME="pixel-management"
 REGION="${REGION:-us-central1}"
 ENVIRONMENT="${ENVIRONMENT:-production}"
 
+# Load environment-specific configuration
+ENV_FILE=".env.${ENVIRONMENT}"
+if [[ -f "$ENV_FILE" ]]; then
+    echo -e "${YELLOW}📄 Loading environment configuration from $ENV_FILE...${NC}"
+    # Export variables from .env file (skip comments and empty lines)
+    set -a
+    source "$ENV_FILE"
+    set +a
+    echo "   ✅ Environment configuration loaded"
+else
+    echo -e "${YELLOW}⚠️  No environment file found at $ENV_FILE${NC}"
+    echo "   Using default/environment variables only"
+fi
+
 echo -e "${YELLOW}📋 Deployment Configuration:${NC}"
 echo "   Project ID: $PROJECT_ID"
 echo "   Service: $SERVICE_NAME"
 echo "   Region: $REGION"
 echo "   Environment: $ENVIRONMENT"
+echo "   Config File: $ENV_FILE"
 echo ""
 
 # Check prerequisites

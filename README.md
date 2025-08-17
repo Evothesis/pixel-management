@@ -102,14 +102,25 @@ gcloud run services describe pixel-management \
 git clone <repository>
 cd pixel-management
 
-# 2. Start development environment
-docker-compose -f docker-compose.local.yml up -d
+# 2. Download geolocation data (one-time setup)
+./scripts/download-geolocation-data.sh
 
-# 3. Access services
+# 3. Start development environment with database initialization
+docker compose --env-file .env.development up --build
+
+# 4. Initialize geolocation database (first run only)
+docker compose --env-file .env.development run --rm postgres-init
+
+# 5. Access services
 # Admin UI: http://localhost:3000
 # Backend API: http://localhost:8000/docs
-# Collection API: http://localhost:8001
 ```
+
+**Setup Performance:**
+- Initial geolocation database setup: Under 4 minutes
+- Data population: ~30 seconds via PostgreSQL COPY
+- Index creation: ~3 minutes for optimal query performance
+- Subsequent starts: Instant (persistent volumes)
 
 ## 🔧 Configuration Management
 
