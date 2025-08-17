@@ -9,6 +9,9 @@ deployment-credentials-*.txt
 evothesis-credentials-*.txt
 pixel-management-credentials-*.txt
 
+# Data Files
+*.csv
+
 # Environment files with secrets
 .env.production
 .env.local
