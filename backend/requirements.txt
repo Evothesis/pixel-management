@@ -14,3 +14,13 @@ bcrypt==4.1.2
 # Firestore dependencies (NEW)
 google-cloud-firestore==2.13.1
 google-cloud-core==2.4.1
+
+# Testing dependencies
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.1
+fakeredis>=2.18.1
+pytest-env>=0.8.2
+freezegun>=1.2.2
+factory-boy>=3.3.0
